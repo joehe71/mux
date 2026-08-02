@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 	"mux/internal/accounts"
 	"mux/internal/codexoauth"
 	"mux/internal/securestore"
@@ -79,7 +80,10 @@ func (a *App) LoginAccount(id string) error {
 }
 
 func (a *App) runLogin(account accounts.Account) {
-	credentials, err := codexoauth.Login(a.ctx)
+	credentials, err := codexoauth.Login(a.ctx, func() {
+		wailsruntime.WindowShow(a.ctx)
+		wailsruntime.WindowUnminimise(a.ctx)
+	})
 	if err != nil {
 		_ = a.store.SetStatus(account.ID, accounts.StatusError, err.Error())
 		return
