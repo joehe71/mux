@@ -1,7 +1,16 @@
 <script>
   import { onMount } from 'svelte'
-  import { AddAccount, ListAccounts, LoginAccount, RemoveAccount, SetActiveAccount } from '../wailsjs/go/main/App.js'
+  import {
+    AddAccount,
+    ListAccounts,
+    LoginAccount,
+    RemoveAccount,
+    SetActiveAccount,
+  } from '../wailsjs/go/main/App.js'
 
+  /** @typedef {{ id: string, name: string, profilePath: string, status: string, createdAt: string, lastUsedAt?: string, error?: string, active: boolean }} Account */
+
+  /** @type {Account[]} */
   let accounts = []
   let name = ''
   let error = ''
@@ -26,6 +35,7 @@
     }
   }
 
+  /** @param {Account} account */
   async function login(account) {
     try {
       await LoginAccount(account.id)
@@ -35,6 +45,7 @@
     }
   }
 
+  /** @param {Account} account */
   async function activate(account) {
     try {
       await SetActiveAccount(account.id)
@@ -44,6 +55,7 @@
     }
   }
 
+  /** @param {Account} account */
   async function remove(account) {
     try {
       await RemoveAccount(account.id)
@@ -67,7 +79,11 @@
   <p class="hint">认证信息由官方登录流程管理，Mux 只保存账号元数据和独立 Profile。</p>
 
   <section class="add-account">
-    <input bind:value={name} placeholder="账号名称" on:keydown={(event) => event.key === 'Enter' && addAccount()} />
+    <input
+      bind:value={name}
+      placeholder="账号名称"
+      on:keydown={(event) => event.key === 'Enter' && addAccount()}
+    />
     <button on:click={addAccount}>添加账号</button>
   </section>
 
@@ -79,7 +95,7 @@
     {#if accounts.length === 0}
       <p class="empty">还没有账号</p>
     {:else}
-      {#each accounts as account}
+      {#each accounts as account (account.id)}
         <article class:active={account.active}>
           <div>
             <strong>{account.name}</strong>
@@ -102,18 +118,70 @@
 </main>
 
 <style>
-  main { max-width: 760px; margin: 0 auto; padding: 48px; color: #222; }
-  h1 { margin-bottom: 8px; }
-  .hint { color: #666; }
-  .add-account, .actions { display: flex; gap: 8px; }
-  .add-account { margin: 32px 0 20px; }
-  input { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 6px; }
-  button { padding: 9px 14px; border: 0; border-radius: 6px; cursor: pointer; }
-  article { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; }
-  article.active { border-color: #4f7cff; }
-  article span { display: block; margin-top: 5px; color: #777; font-size: 13px; }
-  .danger { color: #b42318; }
-  .error { color: #b42318; }
-  .account-error { display: block; max-width: 520px; color: #b42318; font-size: 12px; }
-  .empty { color: #777; }
+  main {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 48px;
+    color: #222;
+  }
+  h1 {
+    margin-bottom: 8px;
+  }
+  .hint {
+    color: #666;
+  }
+  .add-account,
+  .actions {
+    display: flex;
+    gap: 8px;
+  }
+  .add-account {
+    margin: 32px 0 20px;
+  }
+  input {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+  }
+  button {
+    padding: 9px 14px;
+    border: 0;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  article {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px;
+    margin: 10px 0;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+  }
+  article.active {
+    border-color: #4f7cff;
+  }
+  article span {
+    display: block;
+    margin-top: 5px;
+    color: #777;
+    font-size: 13px;
+  }
+  .danger {
+    color: #b42318;
+  }
+  .error {
+    color: #b42318;
+  }
+  .account-error {
+    display: block;
+    max-width: 520px;
+    color: #b42318;
+    font-size: 12px;
+  }
+  .empty {
+    color: #777;
+  }
 </style>
