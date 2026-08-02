@@ -14,6 +14,7 @@ import (
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 	"mux/internal/accounts"
 	"mux/internal/codexoauth"
+	"mux/internal/logger"
 	"mux/internal/securestore"
 )
 
@@ -27,6 +28,7 @@ type App struct {
 	syncMinutes  int
 	syncChanges  chan time.Duration
 	settingsPath string
+	logger       *logger.Logger
 }
 
 type AccountView struct {
@@ -48,6 +50,10 @@ func NewApp() *App {
 		syncChanges:  make(chan time.Duration),
 	}
 	if store != nil {
+		app.logger, err = logger.New(store.Root())
+		if err != nil {
+			app.initErr = err
+		}
 		app.settingsPath = filepath.Join(store.Root(), "settings.json")
 		if contents, readErr := os.ReadFile(app.settingsPath); readErr == nil {
 			var saved settings
@@ -61,6 +67,9 @@ func NewApp() *App {
 
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	if a.logger != nil {
+		a.logger.Info("application started")
+	}
 	go a.startAccountSync(ctx)
 }
 
@@ -68,8 +77,13 @@ func (a *App) startAccountSync(ctx context.Context) {
 	sync := func() {
 		for _, account := range a.store.List() {
 			if err := a.UpdateAccount(account.ID); err != nil {
-				// 单个账号凭据失效或网络异常时，继续更新其他账号。
+				if a.logger != nil {
+					a.logger.Error("account sync failed: account=%s error=%v", account.ID, err)
+				}
 				continue
+			}
+			if a.logger != nil {
+				a.logger.Info("account synced: account=%s", account.ID)
 			}
 		}
 	}
@@ -102,6 +116,9 @@ func (a *App) SetSyncInterval(minutes int) error {
 	a.syncMu.Unlock()
 	if saveErr != nil {
 		return fmt.Errorf("save settings: %w", saveErr)
+	}
+	if a.logger != nil {
+		a.logger.Info("sync interval changed: minutes=%d", minutes)
 	}
 	select {
 	case a.syncChanges <- time.Duration(minutes) * time.Minute:
@@ -189,7 +206,13 @@ func (a *App) UpdateAccount(id string) error {
 	if err != nil {
 		return err
 	}
-	return a.store.SetUsage(id, usageView(usage))
+	if err := a.store.SetUsage(id, usageView(usage)); err != nil {
+		return err
+	}
+	if a.logger != nil {
+		a.logger.Info("account information and usage updated: account=%s", id)
+	}
+	return nil
 }
 
 func usageView(usage codexoauth.Usage) *accounts.Usage {
