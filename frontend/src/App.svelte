@@ -9,6 +9,8 @@
     UpdateAccount,
     GetSyncInterval,
     SetSyncInterval,
+    GetGatewayPort,
+    SetGatewayPort,
     OpenConfigFileFolder,
   } from '../wailsjs/go/main/App.js'
 
@@ -26,6 +28,7 @@
   /** @type {Account | null} */
   let selectedAccount = null
   let syncInterval = 10
+  let gatewayPort = 8787
   let syncIntervalError = ''
 
   $: weeklyUsage = accounts.reduce(
@@ -192,6 +195,7 @@
           title="配置"
           on:click={async () => {
             syncInterval = await GetSyncInterval()
+            gatewayPort = await GetGatewayPort()
             syncIntervalError = ''
             showSettings = true
           }}>⚙ 配置</button
@@ -598,6 +602,24 @@
               <span class="text-xs text-slate-400">分钟（最少 5 分钟）</span>
             </span>
           </label>
+          <label
+            class="mt-4 flex items-center justify-between gap-4 text-sm text-slate-600"
+            for="gateway-port"
+          >
+            <span>默认网关端口</span>
+            <span class="flex items-center gap-2">
+              <input
+                id="gateway-port"
+                class="w-20 rounded-lg border border-slate-200 px-2 py-1.5 text-right text-sm outline-none focus:border-indigo-400"
+                type="number"
+                min="1024"
+                max="65535"
+                step="1"
+                bind:value={gatewayPort}
+              />
+              <span class="text-xs text-slate-400">HTTP（1024-65535）</span>
+            </span>
+          </label>
           {#if syncIntervalError}<p class="mt-2 text-xs text-red-500">{syncIntervalError}</p>{/if}
         </div>
         <div class="mt-6 flex justify-end">
@@ -608,8 +630,13 @@
                 syncIntervalError = '同步间隔不能低于 5 分钟'
                 return
               }
+              if (gatewayPort < 1024 || gatewayPort > 65535) {
+                syncIntervalError = '网关端口必须在 1024-65535 之间'
+                return
+              }
               try {
                 await SetSyncInterval(Number(syncInterval))
+                await SetGatewayPort(Number(gatewayPort))
                 showSettings = false
               } catch (err) {
                 syncIntervalError = String(err)

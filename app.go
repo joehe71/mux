@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -15,6 +16,7 @@ import (
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 	"mux/internal/accounts"
 	"mux/internal/codexoauth"
+	"mux/internal/gateway"
 	"mux/internal/logger"
 	"mux/internal/securestore"
 )
@@ -30,6 +32,10 @@ type App struct {
 	syncChanges  chan time.Duration
 	settingsPath string
 	logger       *logger.Logger
+	gateway      *gateway.Gateway
+	gatewayPort  int
+	affinityMu   sync.Mutex
+	affinity     map[string]string
 }
 
 type AccountView struct {
@@ -39,6 +45,7 @@ type AccountView struct {
 
 type settings struct {
 	SyncIntervalMinutes int `json:"syncIntervalMinutes"`
+	GatewayPort         int `json:"gatewayPort"`
 }
 
 func NewApp() *App {
@@ -49,6 +56,7 @@ func NewApp() *App {
 		loginCancels: make(map[string]context.CancelFunc),
 		syncMinutes:  10,
 		syncChanges:  make(chan time.Duration),
+		affinity:     make(map[string]string),
 	}
 	if store != nil {
 		app.logger, err = logger.New(store.Root())
@@ -58,12 +66,26 @@ func NewApp() *App {
 		app.settingsPath = filepath.Join(store.Root(), "settings.json")
 		if contents, readErr := os.ReadFile(app.settingsPath); readErr == nil {
 			var saved settings
-			if json.Unmarshal(contents, &saved) == nil && saved.SyncIntervalMinutes >= 5 {
-				app.syncMinutes = saved.SyncIntervalMinutes
+			if json.Unmarshal(contents, &saved) == nil {
+				if saved.SyncIntervalMinutes >= 5 {
+					app.syncMinutes = saved.SyncIntervalMinutes
+				}
+				if saved.GatewayPort >= 1024 && saved.GatewayPort <= 65535 {
+					app.gatewayPort = saved.GatewayPort
+				}
 			}
 		}
 	}
 	return app
+}
+
+func (a *App) shutdown(ctx context.Context) {
+	if a.gateway != nil {
+		_ = a.gateway.Close(ctx)
+	}
+	if a.logger != nil {
+		_ = a.logger.Close()
+	}
 }
 
 func (a *App) startup(ctx context.Context) {
@@ -71,7 +93,71 @@ func (a *App) startup(ctx context.Context) {
 	if a.logger != nil {
 		a.logger.Info("application started")
 	}
+	if a.gatewayPort == 0 {
+		a.gatewayPort = 8787
+	}
+	a.gateway = gateway.New(a.gatewayPort, a.selectGatewayCredential, nil)
+	go func() {
+		if err := a.gateway.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) && a.logger != nil {
+			a.logger.Error("gateway stopped", slog.Any("error", err), slog.Int("port", a.gatewayPort))
+		}
+	}()
 	go a.startAccountSync(ctx)
+}
+
+func (a *App) selectGatewayCredential(ctx context.Context, model string) (gateway.Credential, error) {
+	accountsList := a.store.List()
+	a.affinityMu.Lock()
+	preferredID := a.affinity[model]
+	a.affinityMu.Unlock()
+	ordered := make([]accounts.Account, 0, len(accountsList))
+	for _, account := range accountsList {
+		if account.ID == preferredID {
+			ordered = append(ordered, account)
+		}
+	}
+	for _, account := range accountsList {
+		if account.ID != preferredID {
+			ordered = append(ordered, account)
+		}
+	}
+	var lastErr error
+	for _, account := range ordered {
+		if account.Status != accounts.StatusReady || account.Usage == nil || account.Usage.PrimaryWindow == nil || account.Usage.PrimaryWindow.UsedPercent >= 100 {
+			continue
+		}
+		secret, err := securestore.Get(account.ID)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		var credentials codexoauth.Credentials
+		if err := json.Unmarshal([]byte(secret), &credentials); err != nil {
+			lastErr = err
+			continue
+		}
+		if credentials.ExpiresAt <= time.Now().Add(5*time.Minute).UnixMilli() {
+			credentials, err = codexoauth.Refresh(ctx, credentials)
+			if err != nil {
+				lastErr = err
+				continue
+			}
+			//nolint:gosec // credentials are immediately written to the Keychain.
+			encoded, _ := json.Marshal(credentials)
+			if err := securestore.Set(account.ID, string(encoded)); err != nil {
+				lastErr = err
+				continue
+			}
+		}
+		a.affinityMu.Lock()
+		a.affinity[model] = account.ID
+		a.affinityMu.Unlock()
+		return gateway.Credential{AccountID: credentials.AccountID, AccessToken: credentials.AccessToken}, nil
+	}
+	if lastErr != nil {
+		return gateway.Credential{}, fmt.Errorf("no available account: %w", lastErr)
+	}
+	return gateway.Credential{}, errors.New("no account with available quota")
 }
 
 func (a *App) startAccountSync(ctx context.Context) {
@@ -116,7 +202,7 @@ func (a *App) SetSyncInterval(minutes int) error {
 	}
 	a.syncMu.Lock()
 	a.syncMinutes = minutes
-	saveErr := os.WriteFile(a.settingsPath, mustJSON(settings{SyncIntervalMinutes: minutes}), 0o600)
+	saveErr := os.WriteFile(a.settingsPath, mustJSON(settings{SyncIntervalMinutes: minutes, GatewayPort: a.gatewayPort}), 0o600)
 	a.syncMu.Unlock()
 	if saveErr != nil {
 		return fmt.Errorf("save settings: %w", saveErr)
@@ -140,6 +226,34 @@ func (a *App) GetSyncInterval() int {
 	a.syncMu.Lock()
 	defer a.syncMu.Unlock()
 	return a.syncMinutes
+}
+
+func (a *App) GetGatewayPort() int {
+	if a.gatewayPort == 0 {
+		return 8787
+	}
+	return a.gatewayPort
+}
+
+func (a *App) SetGatewayPort(port int) error {
+	if port < 1024 || port > 65535 {
+		return errors.New("gateway port must be between 1024 and 65535")
+	}
+	if a.gateway != nil {
+		_ = a.gateway.Close(context.Background())
+	}
+	a.gatewayPort = port
+	if err := os.WriteFile(a.settingsPath, mustJSON(settings{SyncIntervalMinutes: a.syncMinutes, GatewayPort: port}), 0o600); err != nil {
+		return fmt.Errorf("save gateway settings: %w", err)
+	}
+	if a.ctx != nil {
+		a.gateway = gateway.New(port, a.selectGatewayCredential, nil)
+		go func() { _ = a.gateway.Start() }()
+	}
+	if a.logger != nil {
+		a.logger.Info("gateway port changed", slog.Int("port", port))
+	}
+	return nil
 }
 
 func (a *App) OpenConfigFileFolder() error {

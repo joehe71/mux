@@ -10,6 +10,10 @@ export function CancelLogin(arg1) {
   return window['go']['main']['App']['CancelLogin'](arg1);
 }
 
+export function GetGatewayPort() {
+  return window['go']['main']['App']['GetGatewayPort']();
+}
+
 export function GetSyncInterval() {
   return window['go']['main']['App']['GetSyncInterval']();
 }
@@ -32,6 +36,10 @@ export function RemoveAccount(arg1) {
 
 export function SetActiveAccount(arg1) {
   return window['go']['main']['App']['SetActiveAccount'](arg1);
+}
+
+export function SetGatewayPort(arg1) {
+  return window['go']['main']['App']['SetGatewayPort'](arg1);
 }
 
 export function SetSyncInterval(arg1) {

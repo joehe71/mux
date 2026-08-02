@@ -231,6 +231,47 @@ func UsageInfo(ctx context.Context, accessToken, accountID string) (Usage, error
 	return usage, nil
 }
 
+func Refresh(ctx context.Context, credentials Credentials) (Credentials, error) {
+	if credentials.RefreshToken == "" {
+		return Credentials{}, errors.New("refresh token is empty")
+	}
+	form := url.Values{}
+	form.Set("grant_type", "refresh_token")
+	form.Set("refresh_token", credentials.RefreshToken)
+	form.Set("client_id", clientID)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, oauthExchangeEndpoint, strings.NewReader(form.Encode()))
+	if err != nil {
+		return Credentials{}, fmt.Errorf("create refresh request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return Credentials{}, fmt.Errorf("refresh token request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return Credentials{}, fmt.Errorf("read refresh response: %w", err)
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return Credentials{}, fmt.Errorf("refresh token failed (%s)", resp.Status)
+	}
+	var token tokenResponse
+	if err := json.Unmarshal(body, &token); err != nil {
+		return Credentials{}, fmt.Errorf("decode refresh response: %w", err)
+	}
+	if token.AccessToken == "" || token.ExpiresIn <= 0 {
+		return Credentials{}, errors.New("refresh response missing required fields")
+	}
+	if token.RefreshToken == "" {
+		token.RefreshToken = credentials.RefreshToken
+	}
+	credentials.AccessToken = token.AccessToken
+	credentials.RefreshToken = token.RefreshToken
+	credentials.ExpiresAt = time.Now().Add(time.Duration(token.ExpiresIn) * time.Second).UnixMilli()
+	return credentials, nil
+}
+
 func UserInfo(ctx context.Context, accessToken string) (UserProfile, error) {
 	if accessToken == "" {
 		return UserProfile{}, errors.New("access token is empty")

@@ -36,7 +36,7 @@ export namespace main {
 	        this.usageUpdatedAt = source["usageUpdatedAt"];
 	        this.active = source["active"];
 	    }
-
+	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
