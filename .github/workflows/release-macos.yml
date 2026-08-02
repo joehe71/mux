@@ -57,6 +57,16 @@ jobs:
           ditto -c -k --sequesterRsrc --keepParent \
             build/bin/mux.app "dist/mux-${VERSION}-darwin-arm64.zip"
           shasum -a 256 "dist/mux-${VERSION}-darwin-arm64.zip" > "dist/mux-${VERSION}-darwin-arm64.zip.sha256"
+          mkdir -p dist/dmg-root
+          cp -R build/bin/mux.app dist/dmg-root/Mux.app
+          ln -s /Applications dist/dmg-root/Applications
+          hdiutil create \
+            -volname "Mux ${VERSION}" \
+            -srcfolder dist/dmg-root \
+            -ov \
+            -format UDZO \
+            "dist/mux-${VERSION}-darwin-arm64.dmg"
+          shasum -a 256 "dist/mux-${VERSION}-darwin-arm64.dmg" > "dist/mux-${VERSION}-darwin-arm64.dmg.sha256"
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
@@ -67,3 +77,5 @@ jobs:
           files: |
             dist/mux-${{ env.VERSION }}-darwin-arm64.zip
             dist/mux-${{ env.VERSION }}-darwin-arm64.zip.sha256
+            dist/mux-${{ env.VERSION }}-darwin-arm64.dmg
+            dist/mux-${{ env.VERSION }}-darwin-arm64.dmg.sha256
