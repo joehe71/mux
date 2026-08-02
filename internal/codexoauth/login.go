@@ -255,11 +255,6 @@ func PlanTypeFromAccessToken(token string) (string, error) {
 	return planType, err
 }
 
-func accountIDFromJWT(token string) (string, error) {
-	accountID, _, _, err := claimsFromJWT(token)
-	return accountID, err
-}
-
 func claimsFromJWT(token string) (string, string, string, error) {
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {
