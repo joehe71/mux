@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -295,6 +297,14 @@ func (a *App) SetGatewayPort(port int) error {
 	return nil
 }
 
+func randomGatewayAPIKey() (string, error) {
+	bytes := make([]byte, 24)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", fmt.Errorf("generate gateway API key: %w", err)
+	}
+	return "mux-local-" + base64.RawURLEncoding.EncodeToString(bytes), nil
+}
+
 func (a *App) ConfigureFinchGateway() error {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -313,12 +323,16 @@ func (a *App) ConfigureFinchGateway() error {
 			return fmt.Errorf("decode Finch models: %w", err)
 		}
 	}
+	apiKey, err := randomGatewayAPIKey()
+	if err != nil {
+		return err
+	}
 	provider := map[string]any{
 		"id":       "mux-gateway",
 		"name":     "Mux Gateway",
-		"api":      "openai-codex-responses",
+		"api":      "openai-responses",
 		"baseUrl":  fmt.Sprintf("http://127.0.0.1:%d", a.GetGatewayPort()),
-		"apiKey":   "",
+		"apiKey":   apiKey,
 		"enabled":  true,
 		"isCustom": true,
 		"models":   []any{map[string]any{"id": "gpt-5", "name": "gpt-5", "enabled": true}},
