@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -78,12 +79,12 @@ func (a *App) startAccountSync(ctx context.Context) {
 		for _, account := range a.store.List() {
 			if err := a.UpdateAccount(account.ID); err != nil {
 				if a.logger != nil {
-					a.logger.Error("account sync failed: account=%s error=%v", account.ID, err)
+					a.logger.Error("account sync failed", slog.String("account", account.ID), slog.Any("error", err))
 				}
 				continue
 			}
 			if a.logger != nil {
-				a.logger.Info("account synced: account=%s", account.ID)
+				a.logger.Info("account synced", slog.String("account", account.ID))
 			}
 		}
 	}
@@ -118,7 +119,7 @@ func (a *App) SetSyncInterval(minutes int) error {
 		return fmt.Errorf("save settings: %w", saveErr)
 	}
 	if a.logger != nil {
-		a.logger.Info("sync interval changed: minutes=%d", minutes)
+		a.logger.Info("sync interval changed", slog.Int("minutes", minutes))
 	}
 	select {
 	case a.syncChanges <- time.Duration(minutes) * time.Minute:
@@ -210,7 +211,7 @@ func (a *App) UpdateAccount(id string) error {
 		return err
 	}
 	if a.logger != nil {
-		a.logger.Info("account information and usage updated: account=%s", id)
+		a.logger.Info("account information and usage updated", slog.String("account", id))
 	}
 	return nil
 }

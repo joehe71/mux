@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -29,12 +30,12 @@ func New(root string) (*Logger, error) {
 	return &Logger{file: file, logger: slog.New(handler)}, nil
 }
 
-func (l *Logger) Info(message string, args ...any) {
-	l.logger.Info(fmt.Sprintf(message, args...))
+func (l *Logger) Info(message string, attrs ...slog.Attr) {
+	l.logger.LogAttrs(context.Background(), slog.LevelInfo, message, attrs...)
 }
 
-func (l *Logger) Error(message string, args ...any) {
-	l.logger.Error(fmt.Sprintf(message, args...))
+func (l *Logger) Error(message string, attrs ...slog.Attr) {
+	l.logger.LogAttrs(context.Background(), slog.LevelError, message, attrs...)
 }
 
 func (l *Logger) Close() error {
