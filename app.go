@@ -90,6 +90,7 @@ func (a *App) shutdown(ctx context.Context) {
 	if a.gateway != nil {
 		_ = a.stopGateway(ctx)
 	}
+	stopStatusBar()
 	if a.logger != nil {
 		_ = a.logger.Close()
 	}
@@ -100,6 +101,8 @@ func (a *App) startup(ctx context.Context) {
 	if a.logger != nil {
 		a.logger.Info("application started")
 	}
+	startStatusBar()
+	a.updateStatusBarUsage()
 	if a.gatewayPort == 0 {
 		a.gatewayPort = 8787
 	}
@@ -508,6 +511,7 @@ func (a *App) UpdateAccount(id string) error {
 	if err := a.store.SetUsage(id, usageView(usage)); err != nil {
 		return err
 	}
+	a.updateStatusBarUsage()
 	if a.logger != nil {
 		a.logger.Info("account information and usage updated", slog.String("account", id))
 	}
