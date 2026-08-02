@@ -220,16 +220,17 @@
       </div>
       <div class="ml-auto flex items-center gap-2">
         <button
-          class={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${gatewayEnabled ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'border border-slate-200 text-slate-500 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600'}`}
+          class={`tooltip rounded-xl px-3 py-1.5 text-xs font-semibold transition ${gatewayEnabled ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'border border-slate-200 text-slate-500 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600'}`}
           aria-label={gatewayEnabled ? '停止模型网关' : '启动模型网关'}
-          title={gatewayEnabled ? '停止模型网关' : '启动模型网关'}
+          class:tooltip={true}
+          data-tooltip={gatewayEnabled ? '停止模型网关' : '启动模型网关'}
           on:click={toggleGateway}>{gatewayEnabled ? '网关运行中' : '启动网关'}</button
         >
         <div class="finch-menu relative flex">
           <button
-            class="rounded-l-xl border border-r-0 border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-500 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600"
+            class="tooltip rounded-l-xl border border-r-0 border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-500 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600"
             aria-label="配置到 Finch"
-            title="一键配置到 Finch"
+            data-tooltip="一键配置到 Finch"
             on:click={async () => {
               try {
                 await ConfigureFinchGateway()
@@ -241,9 +242,9 @@
             }}>接入 Finch</button
           >
           <button
-            class="rounded-r-xl border border-slate-200 px-2 py-1.5 text-xs text-slate-500 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600"
+            class="tooltip rounded-r-xl border border-slate-200 px-2 py-1.5 text-xs text-slate-500 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600"
             aria-label="打开 Finch 配置菜单"
-            title="更多 Finch 操作"
+            data-tooltip="更多 Finch 操作"
             on:click={() => (showFinchMenu = !showFinchMenu)}
           >
             <svg
@@ -278,9 +279,9 @@
           {/if}
         </div>
         <button
-          class="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-500 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600"
+          class="tooltip rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-500 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600"
           aria-label="打开配置"
-          title="配置"
+          data-tooltip="配置"
           on:click={async () => {
             syncInterval = await GetSyncInterval()
             gatewayPort = await GetGatewayPort()
@@ -458,7 +459,8 @@
             <button
               class="grid size-8 place-items-center rounded-lg text-xl leading-none text-slate-400 hover:bg-indigo-50 hover:text-indigo-600"
               aria-label={`查看 ${account.name} 详情`}
-              title="查看账号详情"
+              class:tooltip={true}
+              data-tooltip="查看账号详情"
               on:click={() => (selectedAccount = account)}>→</button
             >
           </div>
