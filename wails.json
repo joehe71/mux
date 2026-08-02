@@ -6,6 +6,16 @@
   "frontend:build": "npm run build",
   "frontend:dev:watcher": "npm run dev",
   "frontend:dev:serverUrl": "auto",
+  "info": {
+    "productName": "Mux",
+    "protocols": [
+      {
+        "scheme": "mux",
+        "description": "Return to Mux after OAuth login",
+        "role": "Viewer"
+      }
+    ]
+  },
   "author": {
     "name": "Jinhan He",
     "email": "hjh497804227@gmail.com"

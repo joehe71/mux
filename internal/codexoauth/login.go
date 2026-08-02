@@ -123,7 +123,7 @@ func callbackHandler(expectedState string, resultCh chan<- callbackResult) http.
 			resultCh <- callbackResult{err: errors.New("OAuth authorization code missing")}
 			return
 		}
-		writePage(w, http.StatusOK, "登录成功", "已完成登录，请返回 Mux 桌面程序。账号状态会自动更新。")
+		writeSuccessPage(w)
 		resultCh <- callbackResult{code: code}
 	})
 	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
@@ -203,6 +203,20 @@ func randomString(size int) (string, error) {
 		return "", err
 	}
 	return base64.RawURLEncoding.EncodeToString(buf), nil
+}
+
+func writeSuccessPage(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	_, _ = fmt.Fprint(w, `<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>登录成功</title></head>
+<body>
+  <h1>登录成功</h1>
+  <p>已完成登录，请返回 Mux 桌面程序。账号状态会自动更新。</p>
+  <p><a href="mux://oauth-complete">返回 Mux</a></p>
+</body>
+</html>`)
 }
 
 func writePage(w http.ResponseWriter, status int, title, message string) {
