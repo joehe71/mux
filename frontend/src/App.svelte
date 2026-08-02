@@ -234,8 +234,19 @@
             class="rounded-r-xl border border-slate-200 px-2 py-1.5 text-xs text-slate-500 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600"
             aria-label="打开 Finch 配置菜单"
             title="更多 Finch 操作"
-            on:click={() => (showFinchMenu = !showFinchMenu)}>⌄</button
+            on:click={() => (showFinchMenu = !showFinchMenu)}
           >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              class="size-4"
+              aria-hidden="true"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6" />
+            </svg>
+          </button>
           {#if showFinchMenu}
             <div
               class="absolute right-0 top-full z-30 mt-2 w-36 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-300/40"
