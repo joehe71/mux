@@ -417,7 +417,7 @@
       }}
     >
       <div
-        class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-300/50"
+        class="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-300/50"
         role="dialog"
         aria-modal="true"
         aria-labelledby="account-details-title"
@@ -430,50 +430,91 @@
             on:click={() => (selectedAccount = null)}>×</button
           >
         </div>
-        <div class="mt-5 space-y-3 text-sm">
-          <div class="flex justify-between gap-4">
-            <span class="text-slate-400">账号</span><span class="truncate text-slate-700"
-              >{selectedAccount.name}</span
-            >
-          </div>
-          <div class="flex justify-between gap-4">
-            <span class="text-slate-400">邮箱</span><span class="truncate text-slate-700"
-              >{selectedAccount.email || '暂无邮箱'}</span
-            >
-          </div>
-          <div class="flex justify-between gap-4">
-            <span class="text-slate-400">套餐</span><span class="text-slate-700"
-              >{selectedAccount.planType || '未知'}</span
-            >
-          </div>
-          <div class="flex justify-between gap-4">
-            <span class="text-slate-400">状态</span><span class="text-slate-700"
-              >{statusText(selectedAccount)}</span
-            >
-          </div>
-          {#if selectedAccount.usage?.primaryWindow}<div class="flex justify-between gap-4">
-              <span class="text-slate-400">{windowLabel(selectedAccount.usage.primaryWindow)}</span
-              ><span class="text-slate-700"
-                >已用 {selectedAccount.usage.primaryWindow.usedPercent.toFixed(0)}% · {formatResetAt(
-                  selectedAccount.usage.primaryWindow.resetAt,
-                )} 重置</span
+        <section class="mt-5" aria-labelledby="account-info-title">
+          <h3 id="account-info-title" class="mb-3 text-sm font-semibold text-slate-700">
+            账号信息
+          </h3>
+          <div
+            class="space-y-3 rounded-xl border border-slate-100 bg-slate-50/70 px-4 py-3 text-sm"
+          >
+            <div class="flex justify-between gap-4">
+              <span class="text-slate-400">账号</span><span class="truncate text-slate-700"
+                >{selectedAccount.name}</span
               >
-            </div>{/if}
-          {#if selectedAccount.usage?.secondaryWindow}<div class="flex justify-between gap-4">
-              <span class="text-slate-400"
-                >{windowLabel(selectedAccount.usage.secondaryWindow)}</span
-              ><span class="text-slate-700"
-                >已用 {selectedAccount.usage.secondaryWindow.usedPercent.toFixed(0)}% · {formatResetAt(
-                  selectedAccount.usage.secondaryWindow.resetAt,
-                )} 重置</span
+            </div>
+            <div class="flex justify-between gap-4">
+              <span class="text-slate-400">邮箱</span><span class="truncate text-slate-700"
+                >{selectedAccount.email || '暂无邮箱'}</span
               >
-            </div>{/if}
-          <div class="flex justify-between gap-4">
-            <span class="text-slate-400">上次更新</span><span class="text-slate-700"
-              >{updatedLabel(selectedAccount.usageUpdatedAt)}</span
-            >
+            </div>
+            <div class="flex justify-between gap-4">
+              <span class="text-slate-400">套餐</span><span class="text-slate-700"
+                >{selectedAccount.planType || '未知'}</span
+              >
+            </div>
+            <div class="flex justify-between gap-4">
+              <span class="text-slate-400">状态</span><span class="text-slate-700"
+                >{statusText(selectedAccount)}</span
+              >
+            </div>
+            <div class="flex justify-between gap-4">
+              <span class="text-slate-400">上次更新</span><span class="text-slate-700"
+                >{updatedLabel(selectedAccount.usageUpdatedAt)}</span
+              >
+            </div>
           </div>
-        </div>
+        </section>
+        <section class="mt-6 border-t border-slate-100 pt-5" aria-labelledby="model-usage-title">
+          <h3 id="model-usage-title" class="mb-3 text-sm font-semibold text-slate-700">
+            模型用量信息
+          </h3>
+          <div class="space-y-3">
+            {#if selectedAccount.usage?.primaryWindow}
+              <div class="rounded-xl border border-slate-100 bg-slate-50/70 px-4 py-3">
+                <div class="flex justify-between gap-4 text-sm">
+                  <span class="text-slate-500"
+                    >{windowLabel(selectedAccount.usage.primaryWindow)}</span
+                  ><span class="font-semibold text-slate-700"
+                    >已用 {selectedAccount.usage.primaryWindow.usedPercent.toFixed(0)}%</span
+                  >
+                </div>
+                <p class="mt-1 text-xs text-slate-400">
+                  {formatResetAt(selectedAccount.usage.primaryWindow.resetAt)} 重置
+                </p>
+              </div>
+            {/if}
+            {#if selectedAccount.usage?.secondaryWindow}
+              <div class="rounded-xl border border-slate-100 bg-slate-50/70 px-4 py-3">
+                <div class="flex justify-between gap-4 text-sm">
+                  <span class="text-slate-500"
+                    >{windowLabel(selectedAccount.usage.secondaryWindow)}</span
+                  ><span class="font-semibold text-slate-700"
+                    >已用 {selectedAccount.usage.secondaryWindow.usedPercent.toFixed(0)}%</span
+                  >
+                </div>
+                <p class="mt-1 text-xs text-slate-400">
+                  {formatResetAt(selectedAccount.usage.secondaryWindow.resetAt)} 重置
+                </p>
+              </div>
+            {/if}
+            {#if selectedAccount.usage?.limitReached}<p
+                class="rounded-xl bg-red-50 px-4 py-3 text-xs font-medium text-red-500"
+              >
+                已达到当前限额
+              </p>{/if}
+            <div
+              class="rounded-xl border border-slate-100 bg-slate-50/70 px-4 py-3 text-sm text-slate-500"
+            >
+              {#if selectedAccount.usage?.unlimited}Credits：无限{:else}Credits：{selectedAccount
+                  .usage?.balance || '0'}{/if}
+            </div>
+            {#if !selectedAccount.usage?.primaryWindow && !selectedAccount.usage?.secondaryWindow}<p
+                class="text-xs text-slate-400"
+              >
+                暂无模型用量信息
+              </p>{/if}
+          </div>
+        </section>
       </div>
     </div>
   {/if}
@@ -487,7 +528,7 @@
       }}
     >
       <div
-        class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-300/50"
+        class="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-300/50"
         role="dialog"
         aria-modal="true"
         aria-labelledby="settings-title"
