@@ -13,6 +13,9 @@
 - Run `wails build` to build the desktop application.
 - Run `npm run build` from `frontend/` to validate frontend changes.
 - Run `go test ./...` for Go changes.
+- Run `go vet ./...` for static analysis.
+- Run `golangci-lint run ./...` for lint checks.
+- Run `go list ./... | xargs go run golang.org/x/tools/go/analysis/passes/modernize/cmd/modernize@latest -test=false` for Go modernization checks.
 - Do not commit `.DS_Store`, `node_modules/`, or generated build output.
 
 ## Commits
