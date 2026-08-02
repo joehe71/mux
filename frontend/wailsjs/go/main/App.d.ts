@@ -4,6 +4,8 @@ import {main} from '../models';
 
 export function AddAccount(arg1:string):Promise<main.AccountView>;
 
+export function CancelLogin(arg1:string):Promise<void>;
+
 export function ListAccounts():Promise<Array<main.AccountView>>;
 
 export function LoginAccount(arg1:string):Promise<void>;
@@ -11,3 +13,5 @@ export function LoginAccount(arg1:string):Promise<void>;
 export function RemoveAccount(arg1:string):Promise<void>;
 
 export function SetActiveAccount(arg1:string):Promise<void>;
+
+export function UpdateAccount(arg1:string):Promise<void>;

@@ -4,8 +4,10 @@
 
 - This is a Wails v2 desktop application.
 - The backend uses Go.
-- The frontend uses Svelte and Vite.
+- The frontend uses Svelte, Vite, and Tailwind CSS v4.
 - Keep the application lightweight and avoid unnecessary dependencies.
+- Account display names, email addresses, avatars, and plan types come from Codex OAuth userinfo/JWT data; do not add manual account-name input.
+- Account credentials belong in the macOS Keychain; account metadata and profiles use the Mux application-support directory.
 
 ## Development
 

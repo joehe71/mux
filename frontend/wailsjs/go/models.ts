@@ -3,6 +3,9 @@ export namespace main {
 	export class AccountView {
 	    id: string;
 	    name: string;
+	    email?: string;
+	    avatarUrl?: string;
+	    planType?: string;
 	    profilePath: string;
 	    status: string;
 	    createdAt: string;
@@ -18,6 +21,9 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
 	        this.name = source["name"];
+	        this.email = source["email"];
+	        this.avatarUrl = source["avatarUrl"];
+	        this.planType = source["planType"];
 	        this.profilePath = source["profilePath"];
 	        this.status = source["status"];
 	        this.createdAt = source["createdAt"];
