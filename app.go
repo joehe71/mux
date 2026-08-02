@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
@@ -73,34 +74,39 @@ func (a *App) LoginAccount(id string) error {
 		if err := a.store.SetStatus(id, accounts.StatusLoggingIn, ""); err != nil {
 			return err
 		}
-		go a.runLogin(account)
-		return nil
+		return a.runLogin(account)
 	}
 	return fmt.Errorf("account not found")
 }
 
-func (a *App) runLogin(account accounts.Account) {
+func (a *App) runLogin(account accounts.Account) error {
 	credentials, err := codexoauth.Login(a.ctx, func() {
 		wailsruntime.WindowShow(a.ctx)
 		wailsruntime.WindowUnminimise(a.ctx)
 	})
 	if err != nil {
-		_ = a.store.SetStatus(account.ID, accounts.StatusError, err.Error())
-		return
+		return a.loginFailure(account.ID, err)
 	}
 	//nolint:gosec // Credentials are immediately stored in the macOS Keychain and never written to disk.
 	secret, err := json.Marshal(credentials)
 	if err != nil {
-		_ = a.store.SetStatus(account.ID, accounts.StatusError, "encode credentials failed")
-		return
+		return a.loginFailure(account.ID, fmt.Errorf("encode credentials: %w", err))
 	}
 	if err := securestore.Set(account.ID, string(secret)); err != nil {
-		_ = a.store.SetStatus(account.ID, accounts.StatusError, "save credentials to Keychain failed")
-		return
+		return a.loginFailure(account.ID, fmt.Errorf("save credentials to Keychain: %w", err))
 	}
 	if err := a.store.SetStatus(account.ID, accounts.StatusReady, ""); err != nil {
-		return
+		return fmt.Errorf("set account ready status: %w", err)
 	}
+	return nil
+}
+
+func (a *App) loginFailure(id string, loginErr error) error {
+	statusErr := a.store.SetStatus(id, accounts.StatusError, loginErr.Error())
+	if statusErr != nil {
+		return errors.Join(loginErr, fmt.Errorf("set account error status: %w", statusErr))
+	}
+	return loginErr
 }
 
 func (a *App) RemoveAccount(id string) error {
