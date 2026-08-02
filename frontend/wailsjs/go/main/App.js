@@ -10,8 +10,20 @@ export function CancelLogin(arg1) {
   return window['go']['main']['App']['CancelLogin'](arg1);
 }
 
+export function ConfigureFinchGateway() {
+  return window['go']['main']['App']['ConfigureFinchGateway']();
+}
+
+export function GetGatewayPort() {
+  return window['go']['main']['App']['GetGatewayPort']();
+}
+
 export function GetSyncInterval() {
   return window['go']['main']['App']['GetSyncInterval']();
+}
+
+export function IsGatewayRunning() {
+  return window['go']['main']['App']['IsGatewayRunning']();
 }
 
 export function ListAccounts() {
@@ -30,12 +42,28 @@ export function RemoveAccount(arg1) {
   return window['go']['main']['App']['RemoveAccount'](arg1);
 }
 
+export function RemoveFinchGateway() {
+  return window['go']['main']['App']['RemoveFinchGateway']();
+}
+
 export function SetActiveAccount(arg1) {
   return window['go']['main']['App']['SetActiveAccount'](arg1);
 }
 
+export function SetGatewayPort(arg1) {
+  return window['go']['main']['App']['SetGatewayPort'](arg1);
+}
+
 export function SetSyncInterval(arg1) {
   return window['go']['main']['App']['SetSyncInterval'](arg1);
+}
+
+export function StartGateway() {
+  return window['go']['main']['App']['StartGateway']();
+}
+
+export function StopGateway() {
+  return window['go']['main']['App']['StopGateway']();
 }
 
 export function UpdateAccount(arg1) {

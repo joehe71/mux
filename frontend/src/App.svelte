@@ -9,6 +9,13 @@
     UpdateAccount,
     GetSyncInterval,
     SetSyncInterval,
+    GetGatewayPort,
+    SetGatewayPort,
+    IsGatewayRunning,
+    StartGateway,
+    StopGateway,
+    ConfigureFinchGateway,
+    RemoveFinchGateway,
     OpenConfigFileFolder,
   } from '../wailsjs/go/main/App.js'
 
@@ -23,8 +30,34 @@
   let updatingAccountId = ''
   let toast = ''
   let showSettings = false
+  /** @type {Account | null} */
+  let selectedAccount = null
   let syncInterval = 10
+  let gatewayPort = 8787
+  let gatewayEnabled = false
+  let showFinchMenu = false
+  let showSettingsJson = false
+  let gatewaySettingsExpanded = true
   let syncIntervalError = ''
+
+  /** @param {MouseEvent} event */
+  function closeFinchMenuOnOutsideClick(event) {
+    const target = /** @type {HTMLElement | null} */ (event.target)
+    if (!target?.closest('.finch-menu')) showFinchMenu = false
+  }
+
+  async function toggleGateway() {
+    try {
+      if (gatewayEnabled) {
+        await StopGateway()
+      } else {
+        await StartGateway()
+      }
+      gatewayEnabled = !gatewayEnabled
+    } catch (err) {
+      error = String(err)
+    }
+  }
 
   $: weeklyUsage = accounts.reduce(
     (summary, account) => {
@@ -171,6 +204,8 @@
   })
 </script>
 
+<svelte:window on:click={closeFinchMenuOnOutsideClick} />
+
 <main class="min-h-screen bg-white px-5 py-6 sm:px-8 sm:py-8 lg:px-12 lg:py-10">
   <section class="min-h-screen w-full bg-white sm:min-h-0">
     <header class="flex flex-wrap items-center gap-3 sm:gap-4">
@@ -185,17 +220,75 @@
       </div>
       <div class="ml-auto flex items-center gap-2">
         <button
-          class="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-500 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600"
+          class={`tooltip rounded-xl px-3 py-1.5 text-xs font-semibold transition ${gatewayEnabled ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'border border-slate-200 text-slate-500 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600'}`}
+          aria-label={gatewayEnabled ? '停止模型网关' : '启动模型网关'}
+          class:tooltip={true}
+          data-tooltip={gatewayEnabled ? '停止模型网关' : '启动模型网关'}
+          on:click={toggleGateway}>{gatewayEnabled ? '网关运行中' : '启动网关'}</button
+        >
+        <div class="finch-menu relative flex">
+          <button
+            class="tooltip rounded-l-xl border border-r-0 border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-500 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600"
+            aria-label="配置到 Finch"
+            data-tooltip="一键配置到 Finch"
+            on:click={async () => {
+              try {
+                await ConfigureFinchGateway()
+                toast = '已配置到 Finch custom provider'
+                setTimeout(() => (toast = ''), 2500)
+              } catch (err) {
+                error = String(err)
+              }
+            }}>接入 Finch</button
+          >
+          <button
+            class="tooltip rounded-r-xl border border-slate-200 px-2 py-1.5 text-xs text-slate-500 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600"
+            aria-label="打开 Finch 配置菜单"
+            data-tooltip="更多 Finch 操作"
+            on:click={() => (showFinchMenu = !showFinchMenu)}
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              class="size-4"
+              aria-hidden="true"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6" />
+            </svg>
+          </button>
+          {#if showFinchMenu}
+            <div
+              class="absolute right-0 top-full z-30 mt-2 w-36 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-300/40"
+            >
+              <button
+                class="block w-full rounded-lg px-3 py-2 text-left text-xs text-red-500 hover:bg-red-50"
+                on:click={async () => {
+                  try {
+                    await RemoveFinchGateway()
+                    showFinchMenu = false
+                    toast = '已从 Finch 移除 Mux Gateway'
+                    setTimeout(() => (toast = ''), 2500)
+                  } catch (err) {
+                    error = String(err)
+                  }
+                }}>移除 Finch 配置</button
+              >
+            </div>
+          {/if}
+        </div>
+        <button
+          class="tooltip rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-500 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600"
           aria-label="打开配置"
-          title="配置"
+          data-tooltip="配置"
           on:click={async () => {
             syncInterval = await GetSyncInterval()
+            gatewayPort = await GetGatewayPort()
+            gatewayEnabled = await IsGatewayRunning()
             syncIntervalError = ''
             showSettings = true
           }}>⚙ 配置</button
-        >
-        <span class="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-500"
-          >{accounts.length} 个账号</span
         >
       </div>
     </header>
@@ -347,19 +440,28 @@
                 >{account.error}</small
               >{/if}
           </div>
-          <div class="mt-5 flex items-center justify-end gap-4 border-t border-slate-100 pt-4">
-            {#if account.status !== 'logging_in'}
+          <div class="mt-5 flex items-center justify-between border-t border-slate-100 pt-4">
+            <div class="flex items-center gap-4">
+              {#if account.status !== 'logging_in'}
+                <button
+                  class="text-xs font-semibold text-indigo-600 hover:text-indigo-800"
+                  on:click={() => login(account)}>重新登录</button
+                >
+              {:else}<button
+                  class="text-xs font-semibold text-amber-600 hover:text-amber-800"
+                  on:click={() => cancelLogin(account)}>取消登录</button
+                >{/if}
               <button
-                class="text-xs font-semibold text-indigo-600 hover:text-indigo-800"
-                on:click={() => login(account)}>重新登录</button
+                class="text-xs font-semibold text-red-500 hover:text-red-700"
+                on:click={() => remove(account)}>删除账号</button
               >
-            {:else}<button
-                class="text-xs font-semibold text-amber-600 hover:text-amber-800"
-                on:click={() => cancelLogin(account)}>取消登录</button
-              >{/if}
+            </div>
             <button
-              class="text-xs font-semibold text-red-500 hover:text-red-700"
-              on:click={() => remove(account)}>删除账号</button
+              class="grid size-8 place-items-center rounded-lg text-xl leading-none text-slate-400 hover:bg-indigo-50 hover:text-indigo-600"
+              aria-label={`查看 ${account.name} 详情`}
+              class:tooltip={true}
+              data-tooltip="查看账号详情"
+              on:click={() => (selectedAccount = account)}>→</button
             >
           </div>
           {#if updatingAccountId === account.id}
@@ -398,6 +500,117 @@
       </p>{/if}
   </section>
 
+  {#if selectedAccount}
+    <div
+      class="fixed inset-0 z-40 grid place-items-center bg-slate-900/20 px-5 backdrop-blur-[2px]"
+      role="presentation"
+      on:click={(event) => {
+        if (event.target === event.currentTarget) selectedAccount = null
+      }}
+    >
+      <div
+        class="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-300/50"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="account-details-title"
+      >
+        <div class="flex items-center justify-between">
+          <h2 id="account-details-title" class="text-lg font-bold text-slate-900">账号详情</h2>
+          <button
+            class="grid size-8 place-items-center rounded-lg text-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+            aria-label="关闭账号详情"
+            on:click={() => (selectedAccount = null)}>×</button
+          >
+        </div>
+        <section class="mt-5" aria-labelledby="account-info-title">
+          <h3 id="account-info-title" class="mb-3 text-sm font-semibold text-slate-700">
+            账号信息
+          </h3>
+          <div
+            class="space-y-3 rounded-xl border border-slate-100 bg-slate-50/70 px-4 py-3 text-sm"
+          >
+            <div class="flex justify-between gap-4">
+              <span class="text-slate-400">账号</span><span class="truncate text-slate-700"
+                >{selectedAccount.name}</span
+              >
+            </div>
+            <div class="flex justify-between gap-4">
+              <span class="text-slate-400">邮箱</span><span class="truncate text-slate-700"
+                >{selectedAccount.email || '暂无邮箱'}</span
+              >
+            </div>
+            <div class="flex justify-between gap-4">
+              <span class="text-slate-400">套餐</span><span class="text-slate-700"
+                >{selectedAccount.planType || '未知'}</span
+              >
+            </div>
+            <div class="flex justify-between gap-4">
+              <span class="text-slate-400">状态</span><span class="text-slate-700"
+                >{statusText(selectedAccount)}</span
+              >
+            </div>
+            <div class="flex justify-between gap-4">
+              <span class="text-slate-400">上次更新</span><span class="text-slate-700"
+                >{updatedLabel(selectedAccount.usageUpdatedAt)}</span
+              >
+            </div>
+          </div>
+        </section>
+        <section class="mt-6 border-t border-slate-100 pt-5" aria-labelledby="model-usage-title">
+          <h3 id="model-usage-title" class="mb-3 text-sm font-semibold text-slate-700">
+            模型用量信息
+          </h3>
+          <div class="space-y-3">
+            {#if selectedAccount.usage?.primaryWindow}
+              <div class="rounded-xl border border-slate-100 bg-slate-50/70 px-4 py-3">
+                <div class="flex justify-between gap-4 text-sm">
+                  <span class="text-slate-500"
+                    >{windowLabel(selectedAccount.usage.primaryWindow)}</span
+                  ><span class="font-semibold text-slate-700"
+                    >已用 {selectedAccount.usage.primaryWindow.usedPercent.toFixed(0)}%</span
+                  >
+                </div>
+                <p class="mt-1 text-xs text-slate-400">
+                  {formatResetAt(selectedAccount.usage.primaryWindow.resetAt)} 重置
+                </p>
+              </div>
+            {/if}
+            {#if selectedAccount.usage?.secondaryWindow}
+              <div class="rounded-xl border border-slate-100 bg-slate-50/70 px-4 py-3">
+                <div class="flex justify-between gap-4 text-sm">
+                  <span class="text-slate-500"
+                    >{windowLabel(selectedAccount.usage.secondaryWindow)}</span
+                  ><span class="font-semibold text-slate-700"
+                    >已用 {selectedAccount.usage.secondaryWindow.usedPercent.toFixed(0)}%</span
+                  >
+                </div>
+                <p class="mt-1 text-xs text-slate-400">
+                  {formatResetAt(selectedAccount.usage.secondaryWindow.resetAt)} 重置
+                </p>
+              </div>
+            {/if}
+            {#if selectedAccount.usage?.limitReached}<p
+                class="rounded-xl bg-red-50 px-4 py-3 text-xs font-medium text-red-500"
+              >
+                已达到当前限额
+              </p>{/if}
+            <div
+              class="rounded-xl border border-slate-100 bg-slate-50/70 px-4 py-3 text-sm text-slate-500"
+            >
+              {#if selectedAccount.usage?.unlimited}Credits：无限{:else}Credits：{selectedAccount
+                  .usage?.balance || '0'}{/if}
+            </div>
+            {#if !selectedAccount.usage?.primaryWindow && !selectedAccount.usage?.secondaryWindow}<p
+                class="text-xs text-slate-400"
+              >
+                暂无模型用量信息
+              </p>{/if}
+          </div>
+        </section>
+      </div>
+    </div>
+  {/if}
+
   {#if showSettings}
     <div
       class="fixed inset-0 z-40 grid place-items-center bg-slate-900/20 px-5 backdrop-blur-[2px]"
@@ -407,7 +620,7 @@
       }}
     >
       <div
-        class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-300/50"
+        class="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-300/50"
         role="dialog"
         aria-modal="true"
         aria-labelledby="settings-title"
@@ -456,7 +669,9 @@
           >
         </div>
         <div class="mt-5 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
-          <p class="text-sm font-medium text-slate-700">后台自动同步</p>
+          <p class="mb-3 border-b border-slate-200 pb-3 text-sm font-semibold text-slate-700">
+            账号同步
+          </p>
           <p class="mt-1 text-xs leading-5 text-slate-400">
             应用会按设定间隔自动更新所有账号信息和用量。
           </p>
@@ -477,9 +692,54 @@
               <span class="text-xs text-slate-400">分钟（最少 5 分钟）</span>
             </span>
           </label>
+          <button
+            class="mb-3 mt-6 flex w-full items-center justify-between border-b border-slate-200 pb-3 text-left text-sm font-semibold text-slate-700"
+            aria-expanded={gatewaySettingsExpanded}
+            on:click={() => (gatewaySettingsExpanded = !gatewaySettingsExpanded)}
+          >
+            网关配置
+            <span class:rotate-180={gatewaySettingsExpanded}>⌄</span>
+          </button>
+          {#if gatewaySettingsExpanded}
+            <label
+              class="mt-4 flex items-center justify-between gap-4 text-sm text-slate-600"
+              for="gateway-port"
+            >
+              <span>默认网关端口</span>
+              <span class="flex items-center gap-2">
+                <input
+                  id="gateway-port"
+                  class="w-20 rounded-lg border border-slate-200 px-2 py-1.5 text-right text-sm outline-none focus:border-indigo-400"
+                  type="number"
+                  min="1024"
+                  max="65535"
+                  step="1"
+                  bind:value={gatewayPort}
+                />
+                <span class="text-xs text-slate-400">HTTP（1024-65535）</span>
+              </span>
+            </label>
+          {/if}
           {#if syncIntervalError}<p class="mt-2 text-xs text-red-500">{syncIntervalError}</p>{/if}
         </div>
-        <div class="mt-6 flex justify-end">
+        {#if showSettingsJson}
+          <pre
+            class="mt-4 max-h-40 overflow-auto rounded-xl bg-slate-900 p-3 text-xs text-slate-200">{JSON.stringify(
+              {
+                syncIntervalMinutes: Number(syncInterval),
+                gatewayPort: Number(gatewayPort),
+                gatewayEnabled,
+              },
+              null,
+              2,
+            )}</pre>
+        {/if}
+        <div class="mt-6 flex justify-end gap-2">
+          <button
+            class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+            on:click={() => (showSettingsJson = !showSettingsJson)}
+            >{showSettingsJson ? '隐藏 JSON' : 'JSON'}</button
+          >
           <button
             class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
             on:click={async () => {
@@ -487,8 +747,13 @@
                 syncIntervalError = '同步间隔不能低于 5 分钟'
                 return
               }
+              if (gatewayPort < 1024 || gatewayPort > 65535) {
+                syncIntervalError = '网关端口必须在 1024-65535 之间'
+                return
+              }
               try {
                 await SetSyncInterval(Number(syncInterval))
+                await SetGatewayPort(Number(gatewayPort))
                 showSettings = false
               } catch (err) {
                 syncIntervalError = String(err)

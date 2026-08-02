@@ -19,6 +19,7 @@
 - Run `golangci-lint run ./...` for lint checks.
 - Run `go list ./... | xargs go run golang.org/x/tools/go/analysis/passes/modernize/cmd/modernize@latest -test=false` for Go modernization checks.
 - Do not commit `.DS_Store`, `node_modules/`, or generated build output.
+- Frontend hover hints must use the custom instant tooltip component; do not use the browser `title` attribute because its display is delayed.
 
 ## Commits
 

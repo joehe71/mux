@@ -6,7 +6,13 @@ export function AddAccount(arg1:string):Promise<main.AccountView>;
 
 export function CancelLogin(arg1:string):Promise<void>;
 
+export function ConfigureFinchGateway():Promise<void>;
+
+export function GetGatewayPort():Promise<number>;
+
 export function GetSyncInterval():Promise<number>;
+
+export function IsGatewayRunning():Promise<boolean>;
 
 export function ListAccounts():Promise<Array<main.AccountView>>;
 
@@ -16,8 +22,16 @@ export function OpenConfigFileFolder():Promise<void>;
 
 export function RemoveAccount(arg1:string):Promise<void>;
 
+export function RemoveFinchGateway():Promise<void>;
+
 export function SetActiveAccount(arg1:string):Promise<void>;
 
+export function SetGatewayPort(arg1:number):Promise<void>;
+
 export function SetSyncInterval(arg1:number):Promise<void>;
+
+export function StartGateway():Promise<void>;
+
+export function StopGateway():Promise<void>;
 
 export function UpdateAccount(arg1:string):Promise<void>;
