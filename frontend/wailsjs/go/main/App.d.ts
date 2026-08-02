@@ -6,6 +6,8 @@ export function AddAccount(arg1:string):Promise<main.AccountView>;
 
 export function CancelLogin(arg1:string):Promise<void>;
 
+export function ConfigureFinchGateway():Promise<void>;
+
 export function GetGatewayPort():Promise<number>;
 
 export function GetSyncInterval():Promise<number>;

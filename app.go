@@ -295,6 +295,63 @@ func (a *App) SetGatewayPort(port int) error {
 	return nil
 }
 
+func (a *App) ConfigureFinchGateway() error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("get user home directory: %w", err)
+	}
+	finchHome := filepath.Join(home, ".finch")
+	devModels := filepath.Join(home, ".finch-dev", "models.json")
+	modelsPath := filepath.Join(finchHome, "models.json")
+	if _, err := os.Stat(devModels); err == nil {
+		modelsPath = devModels
+	}
+	stored := map[string]any{}
+	//nolint:gosec // modelsPath is a Finch configuration path selected by the application.
+	if contents, err := os.ReadFile(modelsPath); err == nil {
+		if err := json.Unmarshal(contents, &stored); err != nil {
+			return fmt.Errorf("decode Finch models: %w", err)
+		}
+	}
+	provider := map[string]any{
+		"id":       "mux-gateway",
+		"name":     "Mux Gateway",
+		"api":      "openai-codex-responses",
+		"baseUrl":  fmt.Sprintf("http://127.0.0.1:%d", a.GetGatewayPort()),
+		"apiKey":   "",
+		"enabled":  true,
+		"isCustom": true,
+		"models":   []any{map[string]any{"id": "gpt-5", "name": "gpt-5", "enabled": true}},
+	}
+	providers, _ := stored["customProviders"].([]any)
+	updated := false
+	for i, item := range providers {
+		if existing, ok := item.(map[string]any); ok && existing["id"] == "mux-gateway" {
+			providers[i] = provider
+			updated = true
+			break
+		}
+	}
+	if !updated {
+		providers = append(providers, provider)
+	}
+	stored["customProviders"] = providers
+	contents, err := json.MarshalIndent(stored, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encode Finch models: %w", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(modelsPath), 0o700); err != nil {
+		return fmt.Errorf("create Finch config directory: %w", err)
+	}
+	if err := os.WriteFile(modelsPath, append(contents, '\n'), 0o600); err != nil {
+		return fmt.Errorf("write Finch models: %w", err)
+	}
+	if a.logger != nil {
+		a.logger.Info("Finch gateway provider configured", slog.String("path", modelsPath), slog.Int("port", a.GetGatewayPort()))
+	}
+	return nil
+}
+
 func (a *App) OpenConfigFileFolder() error {
 	if a.initErr != nil {
 		return a.initErr

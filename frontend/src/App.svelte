@@ -14,6 +14,7 @@
     IsGatewayRunning,
     StartGateway,
     StopGateway,
+    ConfigureFinchGateway,
     OpenConfigFileFolder,
   } from '../wailsjs/go/main/App.js'
 
@@ -211,6 +212,20 @@
           aria-label={gatewayEnabled ? '停止模型网关' : '启动模型网关'}
           title={gatewayEnabled ? '停止模型网关' : '启动模型网关'}
           on:click={toggleGateway}>{gatewayEnabled ? '网关运行中' : '启动网关'}</button
+        >
+        <button
+          class="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-500 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600"
+          aria-label="配置到 Finch"
+          title="一键配置到 Finch"
+          on:click={async () => {
+            try {
+              await ConfigureFinchGateway()
+              toast = '已配置到 Finch custom provider'
+              setTimeout(() => (toast = ''), 2500)
+            } catch (err) {
+              error = String(err)
+            }
+          }}>接入 Finch</button
         >
         <button
           class="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-500 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600"

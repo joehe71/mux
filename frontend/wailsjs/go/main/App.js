@@ -10,6 +10,10 @@ export function CancelLogin(arg1) {
   return window['go']['main']['App']['CancelLogin'](arg1);
 }
 
+export function ConfigureFinchGateway() {
+  return window['go']['main']['App']['ConfigureFinchGateway']();
+}
+
 export function GetGatewayPort() {
   return window['go']['main']['App']['GetGatewayPort']();
 }
