@@ -25,6 +25,12 @@ func main() {
 		},
 		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
 		OnStartup:        app.startup,
+		SingleInstanceLock: &options.SingleInstanceLock{
+			UniqueId: "com.mux.desktop",
+			OnSecondInstanceLaunch: func(_ options.SecondInstanceData) {
+				// The first instance remains active; the second instance exits.
+			},
+		},
 		Bind: []any{
 			app,
 		},
