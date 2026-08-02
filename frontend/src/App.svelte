@@ -36,6 +36,8 @@
   let gatewayPort = 8787
   let gatewayEnabled = false
   let showFinchMenu = false
+  let showSettingsJson = false
+  let gatewaySettingsExpanded = true
   let syncIntervalError = ''
 
   async function toggleGateway() {
@@ -657,7 +659,9 @@
           >
         </div>
         <div class="mt-5 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
-          <p class="text-sm font-medium text-slate-700">后台自动同步</p>
+          <p class="mb-3 border-b border-slate-200 pb-3 text-sm font-semibold text-slate-700">
+            账号同步
+          </p>
           <p class="mt-1 text-xs leading-5 text-slate-400">
             应用会按设定间隔自动更新所有账号信息和用量。
           </p>
@@ -678,27 +682,54 @@
               <span class="text-xs text-slate-400">分钟（最少 5 分钟）</span>
             </span>
           </label>
-          <label
-            class="mt-4 flex items-center justify-between gap-4 text-sm text-slate-600"
-            for="gateway-port"
+          <button
+            class="mb-3 mt-6 flex w-full items-center justify-between border-b border-slate-200 pb-3 text-left text-sm font-semibold text-slate-700"
+            aria-expanded={gatewaySettingsExpanded}
+            on:click={() => (gatewaySettingsExpanded = !gatewaySettingsExpanded)}
           >
-            <span>默认网关端口</span>
-            <span class="flex items-center gap-2">
-              <input
-                id="gateway-port"
-                class="w-20 rounded-lg border border-slate-200 px-2 py-1.5 text-right text-sm outline-none focus:border-indigo-400"
-                type="number"
-                min="1024"
-                max="65535"
-                step="1"
-                bind:value={gatewayPort}
-              />
-              <span class="text-xs text-slate-400">HTTP（1024-65535）</span>
-            </span>
-          </label>
+            网关配置
+            <span class:rotate-180={gatewaySettingsExpanded}>⌄</span>
+          </button>
+          {#if gatewaySettingsExpanded}
+            <label
+              class="mt-4 flex items-center justify-between gap-4 text-sm text-slate-600"
+              for="gateway-port"
+            >
+              <span>默认网关端口</span>
+              <span class="flex items-center gap-2">
+                <input
+                  id="gateway-port"
+                  class="w-20 rounded-lg border border-slate-200 px-2 py-1.5 text-right text-sm outline-none focus:border-indigo-400"
+                  type="number"
+                  min="1024"
+                  max="65535"
+                  step="1"
+                  bind:value={gatewayPort}
+                />
+                <span class="text-xs text-slate-400">HTTP（1024-65535）</span>
+              </span>
+            </label>
+          {/if}
           {#if syncIntervalError}<p class="mt-2 text-xs text-red-500">{syncIntervalError}</p>{/if}
         </div>
-        <div class="mt-6 flex justify-end">
+        {#if showSettingsJson}
+          <pre
+            class="mt-4 max-h-40 overflow-auto rounded-xl bg-slate-900 p-3 text-xs text-slate-200">{JSON.stringify(
+              {
+                syncIntervalMinutes: Number(syncInterval),
+                gatewayPort: Number(gatewayPort),
+                gatewayEnabled,
+              },
+              null,
+              2,
+            )}</pre>
+        {/if}
+        <div class="mt-6 flex justify-end gap-2">
+          <button
+            class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+            on:click={() => (showSettingsJson = !showSettingsJson)}
+            >{showSettingsJson ? '隐藏 JSON' : 'JSON'}</button
+          >
           <button
             class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
             on:click={async () => {
