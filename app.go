@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"sync"
@@ -25,6 +26,7 @@ type App struct {
 	syncMu       sync.Mutex
 	syncMinutes  int
 	syncChanges  chan time.Duration
+	settingsPath string
 }
 
 type AccountView struct {
@@ -32,15 +34,29 @@ type AccountView struct {
 	Active bool `json:"active"`
 }
 
+type settings struct {
+	SyncIntervalMinutes int `json:"syncIntervalMinutes"`
+}
+
 func NewApp() *App {
 	store, err := accounts.NewStore()
-	return &App{
+	app := &App{
 		store:        store,
 		initErr:      err,
 		loginCancels: make(map[string]context.CancelFunc),
 		syncMinutes:  10,
 		syncChanges:  make(chan time.Duration),
 	}
+	if store != nil {
+		app.settingsPath = filepath.Join(store.Root(), "settings.json")
+		if contents, readErr := os.ReadFile(app.settingsPath); readErr == nil {
+			var saved settings
+			if json.Unmarshal(contents, &saved) == nil && saved.SyncIntervalMinutes >= 5 {
+				app.syncMinutes = saved.SyncIntervalMinutes
+			}
+		}
+	}
+	return app
 }
 
 func (a *App) startup(ctx context.Context) {
@@ -82,12 +98,21 @@ func (a *App) SetSyncInterval(minutes int) error {
 	}
 	a.syncMu.Lock()
 	a.syncMinutes = minutes
+	saveErr := os.WriteFile(a.settingsPath, mustJSON(settings{SyncIntervalMinutes: minutes}), 0o600)
 	a.syncMu.Unlock()
+	if saveErr != nil {
+		return fmt.Errorf("save settings: %w", saveErr)
+	}
 	select {
 	case a.syncChanges <- time.Duration(minutes) * time.Minute:
 	default:
 	}
 	return nil
+}
+
+func mustJSON(value any) []byte {
+	contents, _ := json.MarshalIndent(value, "", "  ")
+	return append(contents, '\n')
 }
 
 func (a *App) GetSyncInterval() int {
