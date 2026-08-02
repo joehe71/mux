@@ -130,22 +130,30 @@
     }
   }
 
-  /** @param {Account} account */
+  /** @param {number} value */
   function formatResetAt(value) {
     if (!value) return '暂无重置时间'
-    return new Date(value * 1000).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+    return new Date(value * 1000).toLocaleString('zh-CN', {
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
   }
 
+  /** @param {UsageWindow} window */
   function windowLabel(window) {
     const days = Math.round(window.limitWindowSeconds / 86400)
     return days >= 28 ? '月度窗口' : `${days || 7} 天窗口`
   }
 
+  /** @param {string | undefined} value */
   function updatedLabel(value) {
     if (!value) return '尚未更新'
     return `更新于：${new Date(value).toLocaleString('zh-CN')}`
   }
 
+  /** @param {Account} account */
   function statusText(account) {
     if (account.status === 'logging_in') return '登录中…'
     if (account.error || account.status === 'error') return '登录失败'
@@ -194,18 +202,25 @@
 
     <div class="my-8 h-px bg-slate-100"></div>
 
-    <section class="mb-6 rounded-2xl border border-slate-200 bg-slate-50/70 px-5 py-4" aria-label="全部账号 7 天用量">
+    <section
+      class="mb-6 rounded-2xl border border-slate-200 bg-slate-50/70 px-5 py-4"
+      aria-label="全部账号 7 天用量"
+    >
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 class="text-sm font-semibold text-slate-700">全部账号 7 天用量</h2>
           <p class="mt-1 text-xs text-slate-400">
-            整体已用 {weeklyUsage.total ? (weeklyUsage.used / weeklyUsage.total).toFixed(0) : 0}% · 整体剩余 {weeklyUsage.total ? (weeklyUsage.remaining / weeklyUsage.total).toFixed(0) : 0}%
+            整体已用 {weeklyUsage.total ? (weeklyUsage.used / weeklyUsage.total).toFixed(0) : 0}% ·
+            整体剩余 {weeklyUsage.total
+              ? (weeklyUsage.remaining / weeklyUsage.total).toFixed(0)
+              : 0}%
           </p>
         </div>
         <div class="w-full sm:w-56">
           <div class="mb-1 flex justify-between text-[11px] text-slate-400">
             <span>所有账号总配额</span>
-            <span>{weeklyUsage.total ? (weeklyUsage.used / weeklyUsage.total).toFixed(0) : 0}%</span>
+            <span>{weeklyUsage.total ? (weeklyUsage.used / weeklyUsage.total).toFixed(0) : 0}%</span
+            >
           </div>
           <div class="h-2 overflow-hidden rounded-full bg-slate-200">
             <div
@@ -213,7 +228,11 @@
               style={`width: ${weeklyUsage.total ? Math.min(100, weeklyUsage.used / weeklyUsage.total) : 0}%`}
             ></div>
           </div>
-          <p class="mt-1 text-right text-xs font-semibold {weeklyUsage.exhausted > 0 ? 'text-red-500' : 'text-slate-600'}">
+          <p
+            class="mt-1 text-right text-xs font-semibold {weeklyUsage.exhausted > 0
+              ? 'text-red-500'
+              : 'text-slate-600'}"
+          >
             已用完：{weeklyUsage.exhausted} 个账号
           </p>
         </div>
@@ -258,13 +277,14 @@
                   {#if account.email}
                     <span
                       class="pointer-events-none absolute bottom-full left-0 z-30 mb-2 hidden max-w-xs whitespace-nowrap rounded-lg bg-slate-800 px-3 py-1.5 text-xs text-white shadow-lg group-hover/email:block"
-                    >{account.email}</span>
+                      >{account.email}</span
+                    >
                   {/if}
                 </div>
                 <p class="mt-1 text-xs text-slate-400">套餐：{account.planType || '未知'}</p>
               </div>
             </div>
-              <div class="group/refresh relative">
+            <div class="group/refresh relative">
               <button
                 class="grid size-8 place-items-center rounded-lg text-xl leading-none text-slate-400 transition hover:bg-slate-100 hover:text-indigo-600 disabled:cursor-wait disabled:opacity-50"
                 aria-label={`刷新 ${account.name} 用户信息`}
@@ -273,7 +293,8 @@
               >
               <span
                 class="pointer-events-none absolute right-0 top-full z-30 mt-2 hidden whitespace-nowrap rounded-lg bg-slate-800 px-3 py-1.5 text-xs text-white shadow-lg group-hover/refresh:block"
-              >{updatedLabel(account.usageUpdatedAt)}</span>
+                >{updatedLabel(account.usageUpdatedAt)}</span
+              >
             </div>
           </div>
 
@@ -290,23 +311,37 @@
                 class:text-amber-500={account.status === 'logging_in'}>{statusText(account)}</span
               >
             </p>
-            <div class="mt-5 space-y-2 rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2.5">
+            <div
+              class="mt-5 space-y-2 rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2.5"
+            >
               {#if account.usage?.primaryWindow}
                 <p class="text-xs text-slate-500">
-                  {windowLabel(account.usage.primaryWindow)}：剩余 {Math.max(0, 100 - account.usage.primaryWindow.usedPercent).toFixed(0)}%
-                  · {formatResetAt(account.usage.primaryWindow.resetAt)} 重置
+                  {windowLabel(account.usage.primaryWindow)}：剩余 {Math.max(
+                    0,
+                    100 - account.usage.primaryWindow.usedPercent,
+                  ).toFixed(0)}% · {formatResetAt(account.usage.primaryWindow.resetAt)} 重置
                 </p>
               {/if}
               {#if account.usage?.secondaryWindow}
                 <p class="text-xs text-slate-500">
-                  {windowLabel(account.usage.secondaryWindow)}：剩余 {Math.max(0, 100 - account.usage.secondaryWindow.usedPercent).toFixed(0)}%
-                  · {formatResetAt(account.usage.secondaryWindow.resetAt)} 重置
+                  {windowLabel(account.usage.secondaryWindow)}：剩余 {Math.max(
+                    0,
+                    100 - account.usage.secondaryWindow.usedPercent,
+                  ).toFixed(0)}% · {formatResetAt(account.usage.secondaryWindow.resetAt)} 重置
                 </p>
               {/if}
-              {#if account.usage?.limitReached}<p class="text-xs font-medium text-red-500">已达到当前限额</p>{/if}
+              {#if account.usage?.limitReached}<p class="text-xs font-medium text-red-500">
+                  已达到当前限额
+                </p>{/if}
               {#if account.usage?.unlimited}<p class="text-xs text-slate-500">Credits：无限</p>
-              {:else if account.usage?.balance}<p class="text-xs text-slate-500">Credits：{account.usage.balance}</p>{/if}
-              {#if !account.usage?.primaryWindow && !account.usage?.secondaryWindow}<p class="text-xs text-slate-400">暂无用量信息</p>{/if}
+              {:else if account.usage?.balance}<p class="text-xs text-slate-500">
+                  Credits：{account.usage.balance}
+                </p>{/if}
+              {#if !account.usage?.primaryWindow && !account.usage?.secondaryWindow}<p
+                  class="text-xs text-slate-400"
+                >
+                  暂无用量信息
+                </p>{/if}
             </div>
             {#if account.error}<small class="mt-2 block text-[11px] text-red-500"
                 >{account.error}</small
@@ -385,17 +420,31 @@
                 class="grid size-8 place-items-center rounded-lg text-lg text-slate-400 hover:bg-indigo-50 hover:text-indigo-600"
                 aria-label="打开配置文件目录"
                 on:click={async () => {
-                try {
-                  await OpenConfigFileFolder()
-                } catch (err) {
-                  syncIntervalError = String(err)
-                }
-                }}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="size-5" aria-hidden="true">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h5l1.5 2h10v8.5a1.5 1.5 0 0 1-1.5 1.5h-15a1.5 1.5 0 0 1-1.5-1.5v-9a1.5 1.5 0 0 1 1.5-1.5Z" />
+                  try {
+                    await OpenConfigFileFolder()
+                  } catch (err) {
+                    syncIntervalError = String(err)
+                  }
+                }}
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  class="size-5"
+                  aria-hidden="true"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M3.75 6.75h5l1.5 2h10v8.5a1.5 1.5 0 0 1-1.5 1.5h-15a1.5 1.5 0 0 1-1.5-1.5v-9a1.5 1.5 0 0 1 1.5-1.5Z"
+                  />
                 </svg>
               </button>
-              <span class="pointer-events-none absolute left-0 top-full z-30 mt-2 hidden whitespace-nowrap rounded-lg bg-slate-800 px-3 py-1.5 text-xs text-white shadow-lg group-hover/config:block">
+              <span
+                class="pointer-events-none absolute left-0 top-full z-30 mt-2 hidden whitespace-nowrap rounded-lg bg-slate-800 px-3 py-1.5 text-xs text-white shadow-lg group-hover/config:block"
+              >
                 打开配置文件目录
               </span>
             </div>
@@ -408,8 +457,13 @@
         </div>
         <div class="mt-5 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
           <p class="text-sm font-medium text-slate-700">后台自动同步</p>
-          <p class="mt-1 text-xs leading-5 text-slate-400">应用会按设定间隔自动更新所有账号信息和用量。</p>
-          <label class="mt-4 flex items-center justify-between gap-4 text-sm text-slate-600" for="sync-interval">
+          <p class="mt-1 text-xs leading-5 text-slate-400">
+            应用会按设定间隔自动更新所有账号信息和用量。
+          </p>
+          <label
+            class="mt-4 flex items-center justify-between gap-4 text-sm text-slate-600"
+            for="sync-interval"
+          >
             <span>同步间隔</span>
             <span class="flex items-center gap-2">
               <input
