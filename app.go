@@ -84,6 +84,7 @@ func (a *App) runLogin(account accounts.Account) {
 		_ = a.store.SetStatus(account.ID, accounts.StatusError, err.Error())
 		return
 	}
+	//nolint:gosec // Credentials are immediately stored in the macOS Keychain and never written to disk.
 	secret, err := json.Marshal(credentials)
 	if err != nil {
 		_ = a.store.SetStatus(account.ID, accounts.StatusError, "encode credentials failed")
