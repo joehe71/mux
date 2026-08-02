@@ -42,6 +42,10 @@ export function RemoveAccount(arg1) {
   return window['go']['main']['App']['RemoveAccount'](arg1);
 }
 
+export function RemoveFinchGateway() {
+  return window['go']['main']['App']['RemoveFinchGateway']();
+}
+
 export function SetActiveAccount(arg1) {
   return window['go']['main']['App']['SetActiveAccount'](arg1);
 }

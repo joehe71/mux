@@ -366,6 +366,48 @@ func (a *App) ConfigureFinchGateway() error {
 	return nil
 }
 
+func (a *App) RemoveFinchGateway() error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("get user home directory: %w", err)
+	}
+	modelsPath := filepath.Join(home, ".finch", "models.json")
+	devModels := filepath.Join(home, ".finch-dev", "models.json")
+	if _, err := os.Stat(devModels); err == nil {
+		modelsPath = devModels
+	}
+	//nolint:gosec // modelsPath is the Finch configuration path selected by the application.
+	contents, err := os.ReadFile(modelsPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("read Finch models: %w", err)
+	}
+	stored := map[string]any{}
+	if err := json.Unmarshal(contents, &stored); err != nil {
+		return fmt.Errorf("decode Finch models: %w", err)
+	}
+	providers, _ := stored["customProviders"].([]any)
+	filtered := make([]any, 0, len(providers))
+	for _, item := range providers {
+		provider, ok := item.(map[string]any)
+		if !ok || provider["id"] != "mux-gateway" {
+			filtered = append(filtered, item)
+		}
+	}
+	stored["customProviders"] = filtered
+	updated, err := json.MarshalIndent(stored, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encode Finch models: %w", err)
+	}
+	//nolint:gosec // modelsPath is the Finch configuration path selected by the application.
+	if err := os.WriteFile(modelsPath, append(updated, '\n'), 0o600); err != nil {
+		return fmt.Errorf("write Finch models: %w", err)
+	}
+	return nil
+}
+
 func (a *App) OpenConfigFileFolder() error {
 	if a.initErr != nil {
 		return a.initErr

@@ -22,6 +22,8 @@ export function OpenConfigFileFolder():Promise<void>;
 
 export function RemoveAccount(arg1:string):Promise<void>;
 
+export function RemoveFinchGateway():Promise<void>;
+
 export function SetActiveAccount(arg1:string):Promise<void>;
 
 export function SetGatewayPort(arg1:number):Promise<void>;

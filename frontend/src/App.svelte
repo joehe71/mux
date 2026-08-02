@@ -15,6 +15,7 @@
     StartGateway,
     StopGateway,
     ConfigureFinchGateway,
+    RemoveFinchGateway,
     OpenConfigFileFolder,
   } from '../wailsjs/go/main/App.js'
 
@@ -34,6 +35,7 @@
   let syncInterval = 10
   let gatewayPort = 8787
   let gatewayEnabled = false
+  let showFinchMenu = false
   let syncIntervalError = ''
 
   async function toggleGateway() {
@@ -213,20 +215,47 @@
           title={gatewayEnabled ? '停止模型网关' : '启动模型网关'}
           on:click={toggleGateway}>{gatewayEnabled ? '网关运行中' : '启动网关'}</button
         >
-        <button
-          class="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-500 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600"
-          aria-label="配置到 Finch"
-          title="一键配置到 Finch"
-          on:click={async () => {
-            try {
-              await ConfigureFinchGateway()
-              toast = '已配置到 Finch custom provider'
-              setTimeout(() => (toast = ''), 2500)
-            } catch (err) {
-              error = String(err)
-            }
-          }}>接入 Finch</button
-        >
+        <div class="relative flex">
+          <button
+            class="rounded-l-xl border border-r-0 border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-500 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600"
+            aria-label="配置到 Finch"
+            title="一键配置到 Finch"
+            on:click={async () => {
+              try {
+                await ConfigureFinchGateway()
+                toast = '已配置到 Finch custom provider'
+                setTimeout(() => (toast = ''), 2500)
+              } catch (err) {
+                error = String(err)
+              }
+            }}>接入 Finch</button
+          >
+          <button
+            class="rounded-r-xl border border-slate-200 px-2 py-1.5 text-xs text-slate-500 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600"
+            aria-label="打开 Finch 配置菜单"
+            title="更多 Finch 操作"
+            on:click={() => (showFinchMenu = !showFinchMenu)}>⌄</button
+          >
+          {#if showFinchMenu}
+            <div
+              class="absolute right-0 top-full z-30 mt-2 w-36 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-300/40"
+            >
+              <button
+                class="block w-full rounded-lg px-3 py-2 text-left text-xs text-red-500 hover:bg-red-50"
+                on:click={async () => {
+                  try {
+                    await RemoveFinchGateway()
+                    showFinchMenu = false
+                    toast = '已从 Finch 移除 Mux Gateway'
+                    setTimeout(() => (toast = ''), 2500)
+                  } catch (err) {
+                    error = String(err)
+                  }
+                }}>移除 Finch 配置</button
+              >
+            </div>
+          {/if}
+        </div>
         <button
           class="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-500 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600"
           aria-label="打开配置"
