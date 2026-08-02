@@ -123,7 +123,7 @@ func callbackHandler(expectedState string, resultCh chan<- callbackResult) http.
 			resultCh <- callbackResult{err: errors.New("OAuth authorization code missing")}
 			return
 		}
-		writePage(w, http.StatusOK, "登录成功", "已完成登录，可以关闭此页面。")
+		writePage(w, http.StatusOK, "登录成功", "已完成登录，请返回 Mux 桌面程序。账号状态会自动更新。")
 		resultCh <- callbackResult{code: code}
 	})
 	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
