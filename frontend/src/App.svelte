@@ -35,6 +35,19 @@
   let gatewayEnabled = false
   let syncIntervalError = ''
 
+  async function toggleGateway() {
+    try {
+      if (gatewayEnabled) {
+        await StopGateway()
+      } else {
+        await StartGateway()
+      }
+      gatewayEnabled = !gatewayEnabled
+    } catch (err) {
+      error = String(err)
+    }
+  }
+
   $: weeklyUsage = accounts.reduce(
     (summary, account) => {
       const window = account.usage?.primaryWindow
@@ -193,6 +206,12 @@
         <h1 class="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Codex 账号</h1>
       </div>
       <div class="ml-auto flex items-center gap-2">
+        <button
+          class={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${gatewayEnabled ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'border border-slate-200 text-slate-500 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600'}`}
+          aria-label={gatewayEnabled ? '停止模型网关' : '启动模型网关'}
+          title={gatewayEnabled ? '停止模型网关' : '启动模型网关'}
+          on:click={toggleGateway}>{gatewayEnabled ? '网关运行中' : '启动网关'}</button
+        >
         <button
           class="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-500 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600"
           aria-label="打开配置"
@@ -607,25 +626,6 @@
               <span class="text-xs text-slate-400">分钟（最少 5 分钟）</span>
             </span>
           </label>
-          <div class="mt-4 flex items-center justify-between gap-4 text-sm text-slate-600">
-            <span>模型网关</span>
-            <button
-              class={`rounded-lg px-3 py-1.5 text-xs font-semibold ${gatewayEnabled ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}
-              on:click={async () => {
-                try {
-                  if (gatewayEnabled) {
-                    await StopGateway()
-                    gatewayEnabled = false
-                  } else {
-                    await StartGateway()
-                    gatewayEnabled = true
-                  }
-                } catch (err) {
-                  syncIntervalError = String(err)
-                }
-              }}>{gatewayEnabled ? '运行中' : '已停止'}</button
-            >
-          </div>
           <label
             class="mt-4 flex items-center justify-between gap-4 text-sm text-slate-600"
             for="gateway-port"
