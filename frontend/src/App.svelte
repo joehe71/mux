@@ -11,6 +11,9 @@
     SetSyncInterval,
     GetGatewayPort,
     SetGatewayPort,
+    IsGatewayRunning,
+    StartGateway,
+    StopGateway,
     OpenConfigFileFolder,
   } from '../wailsjs/go/main/App.js'
 
@@ -29,6 +32,7 @@
   let selectedAccount = null
   let syncInterval = 10
   let gatewayPort = 8787
+  let gatewayEnabled = true
   let syncIntervalError = ''
 
   $: weeklyUsage = accounts.reduce(
@@ -196,6 +200,7 @@
           on:click={async () => {
             syncInterval = await GetSyncInterval()
             gatewayPort = await GetGatewayPort()
+            gatewayEnabled = await IsGatewayRunning()
             syncIntervalError = ''
             showSettings = true
           }}>⚙ 配置</button
@@ -602,6 +607,25 @@
               <span class="text-xs text-slate-400">分钟（最少 5 分钟）</span>
             </span>
           </label>
+          <div class="mt-4 flex items-center justify-between gap-4 text-sm text-slate-600">
+            <span>模型网关</span>
+            <button
+              class={`rounded-lg px-3 py-1.5 text-xs font-semibold ${gatewayEnabled ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}
+              on:click={async () => {
+                try {
+                  if (gatewayEnabled) {
+                    await StopGateway()
+                    gatewayEnabled = false
+                  } else {
+                    await StartGateway()
+                    gatewayEnabled = true
+                  }
+                } catch (err) {
+                  syncIntervalError = String(err)
+                }
+              }}>{gatewayEnabled ? '运行中' : '已停止'}</button
+            >
+          </div>
           <label
             class="mt-4 flex items-center justify-between gap-4 text-sm text-slate-600"
             for="gateway-port"

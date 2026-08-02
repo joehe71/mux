@@ -18,6 +18,10 @@ export function GetSyncInterval() {
   return window['go']['main']['App']['GetSyncInterval']();
 }
 
+export function IsGatewayRunning() {
+  return window['go']['main']['App']['IsGatewayRunning']();
+}
+
 export function ListAccounts() {
   return window['go']['main']['App']['ListAccounts']();
 }
@@ -44,6 +48,14 @@ export function SetGatewayPort(arg1) {
 
 export function SetSyncInterval(arg1) {
   return window['go']['main']['App']['SetSyncInterval'](arg1);
+}
+
+export function StartGateway() {
+  return window['go']['main']['App']['StartGateway']();
+}
+
+export function StopGateway() {
+  return window['go']['main']['App']['StopGateway']();
 }
 
 export function UpdateAccount(arg1) {

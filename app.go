@@ -36,6 +36,8 @@ type App struct {
 	gatewayPort  int
 	affinityMu   sync.Mutex
 	affinity     map[string]string
+	gatewayMu    sync.Mutex
+	gatewayRun   bool
 }
 
 type AccountView struct {
@@ -81,7 +83,7 @@ func NewApp() *App {
 
 func (a *App) shutdown(ctx context.Context) {
 	if a.gateway != nil {
-		_ = a.gateway.Close(ctx)
+		_ = a.stopGateway(ctx)
 	}
 	if a.logger != nil {
 		_ = a.logger.Close()
@@ -96,12 +98,9 @@ func (a *App) startup(ctx context.Context) {
 	if a.gatewayPort == 0 {
 		a.gatewayPort = 8787
 	}
-	a.gateway = gateway.New(a.gatewayPort, a.selectGatewayCredential, nil)
-	go func() {
-		if err := a.gateway.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) && a.logger != nil {
-			a.logger.Error("gateway stopped", slog.Any("error", err), slog.Int("port", a.gatewayPort))
-		}
-	}()
+	if err := a.StartGateway(); err != nil && a.logger != nil {
+		a.logger.Error("gateway start failed", slog.Any("error", err), slog.Int("port", a.gatewayPort))
+	}
 	go a.startAccountSync(ctx)
 }
 
@@ -228,6 +227,49 @@ func (a *App) GetSyncInterval() int {
 	return a.syncMinutes
 }
 
+func (a *App) StartGateway() error {
+	a.gatewayMu.Lock()
+	defer a.gatewayMu.Unlock()
+	if a.gatewayRun {
+		return nil
+	}
+	if a.gatewayPort == 0 {
+		a.gatewayPort = 8787
+	}
+	a.gateway = gateway.New(a.gatewayPort, a.selectGatewayCredential, nil)
+	a.gatewayRun = true
+	go func(server *gateway.Gateway, port int) {
+		if err := server.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) && a.logger != nil {
+			a.logger.Error("gateway stopped", slog.Any("error", err), slog.Int("port", port))
+		}
+		a.gatewayMu.Lock()
+		a.gatewayRun = false
+		a.gatewayMu.Unlock()
+	}(a.gateway, a.gatewayPort)
+	return nil
+}
+
+func (a *App) StopGateway() error {
+	return a.stopGateway(context.Background())
+}
+
+func (a *App) stopGateway(ctx context.Context) error {
+	a.gatewayMu.Lock()
+	server := a.gateway
+	a.gatewayRun = false
+	a.gatewayMu.Unlock()
+	if server == nil {
+		return nil
+	}
+	return server.Close(ctx)
+}
+
+func (a *App) IsGatewayRunning() bool {
+	a.gatewayMu.Lock()
+	defer a.gatewayMu.Unlock()
+	return a.gatewayRun
+}
+
 func (a *App) GetGatewayPort() int {
 	if a.gatewayPort == 0 {
 		return 8787
@@ -239,8 +281,8 @@ func (a *App) SetGatewayPort(port int) error {
 	if port < 1024 || port > 65535 {
 		return errors.New("gateway port must be between 1024 and 65535")
 	}
-	if a.gateway != nil {
-		_ = a.gateway.Close(context.Background())
+	if err := a.stopGateway(context.Background()); err != nil {
+		return err
 	}
 	a.gatewayPort = port
 	if err := os.WriteFile(a.settingsPath, mustJSON(settings{SyncIntervalMinutes: a.syncMinutes, GatewayPort: port}), 0o600); err != nil {
