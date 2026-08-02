@@ -63,6 +63,7 @@ func (g *Gateway) handle(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusServiceUnavailable)
 		return
 	}
+	body = prepareCodexBody(body)
 	upstream, _ := url.Parse("https://chatgpt.com" + upstreamPath)
 	request, err := http.NewRequestWithContext(r.Context(), r.Method, upstream.String(), bytes.NewReader(body))
 	if err != nil {
@@ -91,6 +92,27 @@ func (g *Gateway) handle(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(response.StatusCode)
 	_, _ = io.Copy(w, response.Body)
+}
+
+func prepareCodexBody(body []byte) []byte {
+	var payload map[string]any
+	if json.Unmarshal(body, &payload) != nil {
+		return body
+	}
+	if _, ok := payload["stream"]; !ok {
+		payload["stream"] = true
+	}
+	if _, ok := payload["store"]; !ok {
+		payload["store"] = false
+	}
+	if _, ok := payload["instructions"]; !ok {
+		payload["instructions"] = "You are a helpful assistant."
+	}
+	prepared, err := json.Marshal(payload)
+	if err != nil {
+		return body
+	}
+	return prepared
 }
 
 func requestModel(r *http.Request, body []byte) (string, error) {
