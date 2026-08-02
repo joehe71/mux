@@ -1,6 +1,7 @@
 package securestore
 
 import (
+	"errors"
 	"strings"
 
 	"github.com/zalando/go-keyring"
@@ -18,7 +19,7 @@ func Get(accountID string) (string, error) {
 
 func Delete(accountID string) error {
 	err := keyring.Delete(service, accountID)
-	if err == nil || err == keyring.ErrNotFound || strings.Contains(strings.ToLower(err.Error()), "not found") || strings.Contains(strings.ToLower(err.Error()), "could not be found") {
+	if err == nil || errors.Is(err, keyring.ErrNotFound) || strings.Contains(strings.ToLower(err.Error()), "not found") || strings.Contains(strings.ToLower(err.Error()), "could not be found") {
 		return nil
 	}
 	return err
