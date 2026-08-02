@@ -24,22 +24,25 @@ import (
 )
 
 type App struct {
-	ctx          context.Context
-	store        *accounts.Store
-	initErr      error
-	loginMu      sync.Mutex
-	loginCancels map[string]context.CancelFunc
-	syncMu       sync.Mutex
-	syncMinutes  int
-	syncChanges  chan time.Duration
-	settingsPath string
-	logger       *logger.Logger
-	gateway      *gateway.Gateway
-	gatewayPort  int
-	affinityMu   sync.Mutex
-	affinity     map[string]string
-	gatewayMu    sync.Mutex
-	gatewayRun   bool
+	ctx                  context.Context
+	store                *accounts.Store
+	initErr              error
+	loginMu              sync.Mutex
+	loginCancels         map[string]context.CancelFunc
+	syncMu               sync.Mutex
+	syncMinutes          int
+	syncChanges          chan time.Duration
+	settingsPath         string
+	logger               *logger.Logger
+	gateway              *gateway.Gateway
+	gatewayPort          int
+	affinityMu           sync.Mutex
+	affinity             map[string]string
+	lastGatewayMu        sync.RWMutex
+	lastGatewayAccountID string
+	lastGatewayAt        int64
+	gatewayMu            sync.Mutex
+	gatewayRun           bool
 }
 
 type AccountView struct {
@@ -150,6 +153,10 @@ func (a *App) selectGatewayCredential(ctx context.Context, model string) (gatewa
 		a.affinityMu.Lock()
 		a.affinity[model] = account.ID
 		a.affinityMu.Unlock()
+		a.lastGatewayMu.Lock()
+		a.lastGatewayAccountID = account.ID
+		a.lastGatewayAt = time.Now().UnixMilli()
+		a.lastGatewayMu.Unlock()
 		return gateway.Credential{AccountID: credentials.AccountID, AccessToken: credentials.AccessToken}, nil
 	}
 	if lastErr != nil {
@@ -261,6 +268,21 @@ func (a *App) stopGateway(ctx context.Context) error {
 		return nil
 	}
 	return server.Close(ctx)
+}
+
+func (a *App) GetLastGatewayRequest() map[string]any {
+	a.lastGatewayMu.RLock()
+	id, at := a.lastGatewayAccountID, a.lastGatewayAt
+	a.lastGatewayMu.RUnlock()
+	if id == "" {
+		return map[string]any{}
+	}
+	for _, account := range a.store.List() {
+		if account.ID == id {
+			return map[string]any{"accountId": id, "accountName": account.Name, "at": at}
+		}
+	}
+	return map[string]any{"accountId": id, "at": at}
 }
 
 func (a *App) IsGatewayRunning() bool {

@@ -12,6 +12,7 @@
     GetGatewayPort,
     SetGatewayPort,
     IsGatewayRunning,
+    GetLastGatewayRequest,
     StartGateway,
     StopGateway,
     ConfigureFinchGateway,
@@ -39,6 +40,7 @@
   let showSettingsJson = false
   let gatewaySettingsExpanded = true
   let syncIntervalError = ''
+  let lastGatewayRequest = { accountName: '', at: 0 }
 
   /** @param {MouseEvent} event */
   function closeFinchMenuOnOutsideClick(event) {
@@ -71,6 +73,14 @@
     },
     { total: 0, used: 0, remaining: 0, exhausted: 0 },
   )
+
+  async function refreshLastGatewayRequest() {
+    try {
+      lastGatewayRequest = await GetLastGatewayRequest()
+    } catch {
+      // Keep the account page usable when the gateway status is unavailable.
+    }
+  }
 
   async function refresh() {
     try {
@@ -197,7 +207,9 @@
 
   onMount(() => {
     refresh().then(() => syncProfiles())
+    refreshLastGatewayRequest()
     const timer = setInterval(() => {
+      refreshLastGatewayRequest()
       if (accounts.some((account) => account.status === 'logging_in')) refresh()
     }, 1000)
     return () => clearInterval(timer)
@@ -216,7 +228,7 @@
       </div>
       <div>
         <p class="mb-0.5 text-xs font-bold tracking-[0.2em] text-slate-400">MUX</p>
-        <h1 class="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Codex 账号</h1>
+        <h1 class="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">账号管理</h1>
       </div>
       <div class="ml-auto flex items-center gap-2">
         <button
@@ -294,6 +306,15 @@
     </header>
 
     <div class="my-8 h-px bg-slate-100"></div>
+
+    <div class="mb-6 flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-sm">
+      <span class="text-slate-500">最近请求命中账号</span>
+      {#if lastGatewayRequest.accountName}
+        <span class="font-semibold text-slate-700">{lastGatewayRequest.accountName}</span>
+      {:else}
+        <span class="text-slate-400">暂无请求记录</span>
+      {/if}
+    </div>
 
     <section
       class="mb-6 rounded-2xl border border-slate-200 bg-slate-50/70 px-5 py-4"

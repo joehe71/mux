@@ -18,6 +18,10 @@ export function GetGatewayPort() {
   return window['go']['main']['App']['GetGatewayPort']();
 }
 
+export function GetLastGatewayRequest() {
+  return window['go']['main']['App']['GetLastGatewayRequest']();
+}
+
 export function GetSyncInterval() {
   return window['go']['main']['App']['GetSyncInterval']();
 }
