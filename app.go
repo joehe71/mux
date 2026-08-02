@@ -77,6 +77,9 @@ func (a *App) startup(ctx context.Context) {
 func (a *App) startAccountSync(ctx context.Context) {
 	sync := func() {
 		for _, account := range a.store.List() {
+			if a.logger != nil {
+				a.logger.Info("background account sync started", slog.String("account", account.ID))
+			}
 			if err := a.UpdateAccount(account.ID); err != nil {
 				if a.logger != nil {
 					a.logger.Error("account sync failed", slog.String("account", account.ID), slog.Any("error", err))
