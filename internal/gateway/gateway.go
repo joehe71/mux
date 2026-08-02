@@ -22,13 +22,17 @@ type Credential struct {
 
 type Selector func(ctx context.Context, model string) (Credential, error)
 
+type Logger interface {
+	Error(message string, attrs ...slog.Attr)
+}
+
 type Gateway struct {
 	server   *http.Server
 	selector Selector
-	logger   *slog.Logger
+	logger   Logger
 }
 
-func New(port int, selector Selector, logger *slog.Logger) *Gateway {
+func New(port int, selector Selector, logger Logger) *Gateway {
 	gateway := &Gateway{selector: selector, logger: logger}
 	gateway.server = &http.Server{
 		Addr:              fmt.Sprintf("127.0.0.1:%d", port),
@@ -87,7 +91,7 @@ func (g *Gateway) handle(w http.ResponseWriter, r *http.Request) {
 	if response.StatusCode >= http.StatusBadRequest {
 		upstreamBody, readErr := io.ReadAll(io.LimitReader(response.Body, 64<<10))
 		if g.logger != nil {
-			g.logger.Error("codex upstream request failed", "status", response.StatusCode, "body", string(upstreamBody), "read_error", readErr)
+			g.logger.Error("codex upstream request failed", slog.Int("status", response.StatusCode), slog.String("body", string(upstreamBody)), slog.Any("read_error", readErr))
 		}
 		writeCORS(w)
 		w.Header().Set("Content-Type", "application/json")

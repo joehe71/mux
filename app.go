@@ -235,7 +235,7 @@ func (a *App) StartGateway() error {
 	if a.gatewayPort == 0 {
 		a.gatewayPort = 8787
 	}
-	a.gateway = gateway.New(a.gatewayPort, a.selectGatewayCredential, nil)
+	a.gateway = gateway.New(a.gatewayPort, a.selectGatewayCredential, a.logger)
 	a.gatewayRun = true
 	go func(server *gateway.Gateway, port int) {
 		if err := server.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) && a.logger != nil {
@@ -288,7 +288,7 @@ func (a *App) SetGatewayPort(port int) error {
 		return fmt.Errorf("save gateway settings: %w", err)
 	}
 	if a.ctx != nil {
-		a.gateway = gateway.New(port, a.selectGatewayCredential, nil)
+		a.gateway = gateway.New(port, a.selectGatewayCredential, a.logger)
 		go func() { _ = a.gateway.Start() }()
 	}
 	if a.logger != nil {
