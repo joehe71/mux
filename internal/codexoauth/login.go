@@ -1,0 +1,208 @@
+package codexoauth
+
+import (
+	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"net/url"
+	"os/exec"
+	"strings"
+	"time"
+)
+
+const (
+	clientID     = "app_EMoamEEZ73f0CkXaXp7hrann"
+	authorizeURL = "https://auth.openai.com/oauth/authorize"
+	tokenURL     = "https://auth.openai.com/oauth/token"
+	redirectURI  = "http://localhost:1455/auth/callback"
+	scope        = "openid profile email offline_access"
+)
+
+type Credentials struct {
+	AccessToken  string `json:"accessToken"`
+	RefreshToken string `json:"refreshToken"`
+	ExpiresAt    int64  `json:"expiresAt"`
+	AccountID    string `json:"accountId"`
+}
+
+type tokenResponse struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	ExpiresIn    int64  `json:"expires_in"`
+}
+
+type callbackResult struct {
+	code string
+	err  error
+}
+
+func Login(ctx context.Context) (Credentials, error) {
+	verifier, err := randomString(32)
+	if err != nil {
+		return Credentials{}, fmt.Errorf("generate PKCE verifier: %w", err)
+	}
+	state, err := randomString(16)
+	if err != nil {
+		return Credentials{}, fmt.Errorf("generate OAuth state: %w", err)
+	}
+
+	hash := sha256.Sum256([]byte(verifier))
+	challenge := base64.RawURLEncoding.EncodeToString(hash[:])
+	authorize, err := url.Parse(authorizeURL)
+	if err != nil {
+		return Credentials{}, fmt.Errorf("parse authorization URL: %w", err)
+	}
+	query := authorize.Query()
+	query.Set("response_type", "code")
+	query.Set("client_id", clientID)
+	query.Set("redirect_uri", redirectURI)
+	query.Set("scope", scope)
+	query.Set("code_challenge", challenge)
+	query.Set("code_challenge_method", "S256")
+	query.Set("state", state)
+	query.Set("id_token_add_organizations", "true")
+	query.Set("codex_cli_simplified_flow", "true")
+	query.Set("originator", "mux")
+	authorize.RawQuery = query.Encode()
+
+	resultCh := make(chan callbackResult, 1)
+	server := &http.Server{Addr: "127.0.0.1:1455"}
+	server.Handler = callbackHandler(state, resultCh)
+	listenerErr := make(chan error, 1)
+	listener, err := net.Listen("tcp", server.Addr)
+	if err != nil {
+		return Credentials{}, fmt.Errorf("start OAuth callback server: %w", err)
+	}
+	go func() { listenerErr <- server.Serve(listener) }()
+	defer server.Close()
+
+	if err := exec.CommandContext(ctx, "open", authorize.String()).Run(); err != nil {
+		return Credentials{}, fmt.Errorf("open browser: %w", err)
+	}
+
+	select {
+	case result := <-resultCh:
+		if result.err != nil {
+			return Credentials{}, result.err
+		}
+		return exchange(ctx, result.code, verifier)
+	case err := <-listenerErr:
+		if !errors.Is(err, http.ErrServerClosed) {
+			return Credentials{}, fmt.Errorf("OAuth callback server: %w", err)
+		}
+		return Credentials{}, errors.New("OAuth callback server closed")
+	case <-ctx.Done():
+		return Credentials{}, ctx.Err()
+	case <-time.After(5 * time.Minute):
+		return Credentials{}, errors.New("OAuth login timed out")
+	}
+}
+
+func callbackHandler(expectedState string, resultCh chan<- callbackResult) http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/auth/callback", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("state") != expectedState {
+			writePage(w, http.StatusBadRequest, "登录验证失败", "state 不匹配，请关闭此页面并重试。")
+			resultCh <- callbackResult{err: errors.New("OAuth state mismatch")}
+			return
+		}
+		code := r.URL.Query().Get("code")
+		if code == "" {
+			writePage(w, http.StatusBadRequest, "登录失败", "未收到授权码，请关闭此页面并重试。")
+			resultCh <- callbackResult{err: errors.New("OAuth authorization code missing")}
+			return
+		}
+		writePage(w, http.StatusOK, "登录成功", "已完成登录，可以关闭此页面。")
+		resultCh <- callbackResult{code: code}
+	})
+	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
+		writePage(w, http.StatusNotFound, "页面不存在", "请返回应用重试。")
+	})
+	return mux
+}
+
+func exchange(ctx context.Context, code, verifier string) (Credentials, error) {
+	form := url.Values{}
+	form.Set("grant_type", "authorization_code")
+	form.Set("client_id", clientID)
+	form.Set("code", code)
+	form.Set("code_verifier", verifier)
+	form.Set("redirect_uri", redirectURI)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenURL, strings.NewReader(form.Encode()))
+	if err != nil {
+		return Credentials{}, fmt.Errorf("create token request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return Credentials{}, fmt.Errorf("exchange authorization code: %w", err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return Credentials{}, fmt.Errorf("read token response: %w", err)
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return Credentials{}, fmt.Errorf("token exchange failed (%s)", resp.Status)
+	}
+	var token tokenResponse
+	if err := json.Unmarshal(body, &token); err != nil {
+		return Credentials{}, fmt.Errorf("decode token response: %w", err)
+	}
+	if token.AccessToken == "" || token.RefreshToken == "" || token.ExpiresIn <= 0 {
+		return Credentials{}, errors.New("token response missing required fields")
+	}
+	accountID, err := accountIDFromJWT(token.AccessToken)
+	if err != nil {
+		return Credentials{}, err
+	}
+	return Credentials{
+		AccessToken: token.AccessToken, RefreshToken: token.RefreshToken,
+		ExpiresAt: time.Now().Add(time.Duration(token.ExpiresIn) * time.Second).UnixMilli(),
+		AccountID: accountID,
+	}, nil
+}
+
+func accountIDFromJWT(token string) (string, error) {
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		return "", errors.New("invalid access token")
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return "", fmt.Errorf("decode access token: %w", err)
+	}
+	var claims map[string]json.RawMessage
+	if err := json.Unmarshal(payload, &claims); err != nil {
+		return "", fmt.Errorf("decode access token claims: %w", err)
+	}
+	var auth struct {
+		AccountID string `json:"chatgpt_account_id"`
+	}
+	raw, ok := claims["https://api.openai.com/auth"]
+	if !ok || json.Unmarshal(raw, &auth) != nil || auth.AccountID == "" {
+		return "", errors.New("access token does not contain ChatGPT account ID")
+	}
+	return auth.AccountID, nil
+}
+
+func randomString(size int) (string, error) {
+	buf := make([]byte, size)
+	if _, err := rand.Read(buf); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(buf), nil
+}
+
+func writePage(w http.ResponseWriter, status int, title, message string) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(status)
+	_, _ = fmt.Fprintf(w, "<!doctype html><meta charset=\"utf-8\"><title>%s</title><h1>%s</h1><p>%s</p>", title, title, message)
+}
