@@ -127,6 +127,7 @@ func prepareCodexBody(body []byte) []byte {
 			payload["model"] = modelID
 		}
 	}
+	delete(payload, "max_output_tokens")
 	if _, ok := payload["stream"]; !ok {
 		payload["stream"] = true
 	}
