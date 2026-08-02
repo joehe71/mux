@@ -22,6 +22,7 @@ func New(root string) (*Logger, error) {
 		return nil, fmt.Errorf("create log directory: %w", err)
 	}
 	path := filepath.Join(dir, time.Now().Format(time.DateOnly)+".log")
+	//nolint:gosec // root is the application directory created by Store.
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
 	if err != nil {
 		return nil, fmt.Errorf("open log file: %w", err)

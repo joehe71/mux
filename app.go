@@ -146,6 +146,7 @@ func (a *App) OpenConfigFileFolder() error {
 	if a.initErr != nil {
 		return a.initErr
 	}
+	//nolint:gosec // the path is the application directory resolved by Store.
 	return exec.Command("open", a.store.Root()).Run()
 }
 
