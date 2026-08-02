@@ -40,6 +40,12 @@
   let gatewaySettingsExpanded = true
   let syncIntervalError = ''
 
+  /** @param {MouseEvent} event */
+  function closeFinchMenuOnOutsideClick(event) {
+    const target = /** @type {HTMLElement | null} */ (event.target)
+    if (!target?.closest('.finch-menu')) showFinchMenu = false
+  }
+
   async function toggleGateway() {
     try {
       if (gatewayEnabled) {
@@ -198,6 +204,8 @@
   })
 </script>
 
+<svelte:window on:click={closeFinchMenuOnOutsideClick} />
+
 <main class="min-h-screen bg-white px-5 py-6 sm:px-8 sm:py-8 lg:px-12 lg:py-10">
   <section class="min-h-screen w-full bg-white sm:min-h-0">
     <header class="flex flex-wrap items-center gap-3 sm:gap-4">
@@ -217,7 +225,7 @@
           title={gatewayEnabled ? '停止模型网关' : '启动模型网关'}
           on:click={toggleGateway}>{gatewayEnabled ? '网关运行中' : '启动网关'}</button
         >
-        <div class="relative flex">
+        <div class="finch-menu relative flex">
           <button
             class="rounded-l-xl border border-r-0 border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-500 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600"
             aria-label="配置到 Finch"
