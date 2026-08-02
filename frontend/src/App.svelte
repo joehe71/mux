@@ -224,9 +224,6 @@
             showSettings = true
           }}>⚙ 配置</button
         >
-        <span class="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-500"
-          >{accounts.length} 个账号</span
-        >
       </div>
     </header>
 
