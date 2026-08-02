@@ -114,6 +114,9 @@ func prepareCodexBody(body []byte) []byte {
 	if json.Unmarshal(body, &payload) != nil {
 		return body
 	}
+	if model, ok := payload["model"].(string); ok && (model == "gpt-4o-mini" || strings.HasPrefix(model, "claude-")) {
+		payload["model"] = "gpt-5"
+	}
 	if _, ok := payload["stream"]; !ok {
 		payload["stream"] = true
 	}
