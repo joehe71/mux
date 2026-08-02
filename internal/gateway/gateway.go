@@ -108,6 +108,15 @@ func prepareCodexBody(body []byte) []byte {
 	if _, ok := payload["instructions"]; !ok {
 		payload["instructions"] = "You are a helpful assistant."
 	}
+	if text, ok := payload["input"].(string); ok {
+		payload["input"] = []any{map[string]any{
+			"role": "user",
+			"content": []any{map[string]any{
+				"type": "input_text",
+				"text": text,
+			}},
+		}}
+	}
 	prepared, err := json.Marshal(payload)
 	if err != nil {
 		return body
