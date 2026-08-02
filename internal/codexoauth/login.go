@@ -214,7 +214,7 @@ func writeSuccessPage(w http.ResponseWriter) {
 <body>
   <h1>登录成功</h1>
   <p>已完成登录，请返回 Mux 桌面程序。账号状态会自动更新。</p>
-  <p><a href="mux://oauth-complete">返回 Mux</a></p>
+  <button type="button" onclick="window.location.href='mux://oauth-complete'">返回 Mux</button>
 </body>
 </html>`)
 }
