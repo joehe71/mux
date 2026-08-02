@@ -450,8 +450,11 @@ func (a *App) runLogin(ctx context.Context, account accounts.Account) error {
 	if err := securestore.Set(account.ID, string(secret)); err != nil {
 		return a.loginFailure(account.ID, fmt.Errorf("save credentials to Keychain: %w", err))
 	}
-	profile, err := codexoauth.UserInfo(ctx, credentials.AccessToken)
-	if err != nil {
+	profile := codexoauth.UserProfile{}
+	fetchedProfile, err := codexoauth.UserInfo(ctx, credentials.AccessToken)
+	if err == nil {
+		profile = fetchedProfile
+	} else {
 		profile.Name = credentials.DisplayName
 	}
 	name := profile.Name
