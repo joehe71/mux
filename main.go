@@ -6,6 +6,7 @@ import (
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 //go:embed all:frontend/dist
@@ -28,7 +29,8 @@ func main() {
 		SingleInstanceLock: &options.SingleInstanceLock{
 			UniqueId: "com.mux.desktop",
 			OnSecondInstanceLaunch: func(_ options.SecondInstanceData) {
-				// The first instance remains active; the second instance exits.
+				wailsruntime.WindowShow(app.ctx)
+				wailsruntime.WindowUnminimise(app.ctx)
 			},
 		},
 		Bind: []any{
