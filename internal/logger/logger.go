@@ -21,7 +21,7 @@ func New(root string) (*Logger, error) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, fmt.Errorf("create log directory: %w", err)
 	}
-	path := filepath.Join(dir, time.Now().Format("2006-01-02")+".log")
+	path := filepath.Join(dir, time.Now().Format(time.DateOnly)+".log")
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
 	if err != nil {
 		return nil, fmt.Errorf("open log file: %w", err)
