@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync"
+	"time"
 
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 	"mux/internal/accounts"
@@ -13,9 +15,11 @@ import (
 )
 
 type App struct {
-	ctx     context.Context
-	store   *accounts.Store
-	initErr error
+	ctx         context.Context
+	store       *accounts.Store
+	initErr     error
+	loginMu     sync.Mutex
+	loginCancel map[string]context.CancelFunc
 }
 
 type AccountView struct {
@@ -25,7 +29,11 @@ type AccountView struct {
 
 func NewApp() *App {
 	store, err := accounts.NewStore()
-	return &App{store: store, initErr: err}
+	return &App{
+		store:       store,
+		initErr:     err,
+		loginCancel: make(map[string]context.CancelFunc),
+	}
 }
 
 func (a *App) startup(ctx context.Context) {
@@ -74,13 +82,30 @@ func (a *App) LoginAccount(id string) error {
 		if err := a.store.SetStatus(id, accounts.StatusLoggingIn, ""); err != nil {
 			return err
 		}
-		return a.runLogin(account)
+		loginCtx, cancel := context.WithTimeout(a.ctx, 5*time.Minute)
+		a.loginMu.Lock()
+		if _, exists := a.loginCancel[id]; exists {
+			a.loginMu.Unlock()
+			cancel()
+			return errors.New("account login is already in progress")
+		}
+		a.loginCancel[id] = cancel
+		a.loginMu.Unlock()
+		go func() {
+			defer func() {
+				a.loginMu.Lock()
+				delete(a.loginCancel, id)
+				a.loginMu.Unlock()
+			}()
+			_ = a.runLogin(loginCtx, account)
+		}()
+		return nil
 	}
 	return fmt.Errorf("account not found")
 }
 
-func (a *App) runLogin(account accounts.Account) error {
-	credentials, err := codexoauth.Login(a.ctx, func() {
+func (a *App) runLogin(ctx context.Context, account accounts.Account) error {
+	credentials, err := codexoauth.Login(ctx, func() {
 		wailsruntime.WindowShow(a.ctx)
 		wailsruntime.WindowUnminimise(a.ctx)
 	})
@@ -101,6 +126,17 @@ func (a *App) runLogin(account accounts.Account) error {
 	return nil
 }
 
+func (a *App) CancelLogin(id string) error {
+	a.loginMu.Lock()
+	cancel, exists := a.loginCancel[id]
+	a.loginMu.Unlock()
+	if !exists {
+		return errors.New("account login is not in progress")
+	}
+	cancel()
+	return nil
+}
+
 func (a *App) loginFailure(id string, loginErr error) error {
 	statusErr := a.store.SetStatus(id, accounts.StatusError, loginErr.Error())
 	if statusErr != nil {
@@ -112,6 +148,12 @@ func (a *App) loginFailure(id string, loginErr error) error {
 func (a *App) RemoveAccount(id string) error {
 	if a.initErr != nil {
 		return a.initErr
+	}
+	a.loginMu.Lock()
+	cancel, exists := a.loginCancel[id]
+	a.loginMu.Unlock()
+	if exists {
+		cancel()
 	}
 	if err := securestore.Delete(id); err != nil {
 		return fmt.Errorf("delete account credentials from Keychain: %w", err)
