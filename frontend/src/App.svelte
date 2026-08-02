@@ -23,6 +23,8 @@
   let updatingAccountId = ''
   let toast = ''
   let showSettings = false
+  /** @type {Account | null} */
+  let selectedAccount = null
   let syncInterval = 10
   let syncIntervalError = ''
 
@@ -347,19 +349,27 @@
                 >{account.error}</small
               >{/if}
           </div>
-          <div class="mt-5 flex items-center justify-end gap-4 border-t border-slate-100 pt-4">
-            {#if account.status !== 'logging_in'}
+          <div class="mt-5 flex items-center justify-between border-t border-slate-100 pt-4">
+            <div class="flex items-center gap-4">
+              {#if account.status !== 'logging_in'}
+                <button
+                  class="text-xs font-semibold text-indigo-600 hover:text-indigo-800"
+                  on:click={() => login(account)}>重新登录</button
+                >
+              {:else}<button
+                  class="text-xs font-semibold text-amber-600 hover:text-amber-800"
+                  on:click={() => cancelLogin(account)}>取消登录</button
+                >{/if}
               <button
-                class="text-xs font-semibold text-indigo-600 hover:text-indigo-800"
-                on:click={() => login(account)}>重新登录</button
+                class="text-xs font-semibold text-red-500 hover:text-red-700"
+                on:click={() => remove(account)}>删除账号</button
               >
-            {:else}<button
-                class="text-xs font-semibold text-amber-600 hover:text-amber-800"
-                on:click={() => cancelLogin(account)}>取消登录</button
-              >{/if}
+            </div>
             <button
-              class="text-xs font-semibold text-red-500 hover:text-red-700"
-              on:click={() => remove(account)}>删除账号</button
+              class="grid size-8 place-items-center rounded-lg text-xl leading-none text-slate-400 hover:bg-indigo-50 hover:text-indigo-600"
+              aria-label={`查看 ${account.name} 详情`}
+              title="查看账号详情"
+              on:click={() => (selectedAccount = account)}>→</button
             >
           </div>
           {#if updatingAccountId === account.id}
@@ -397,6 +407,76 @@
         还没有账号，点击上方卡片开始登录
       </p>{/if}
   </section>
+
+  {#if selectedAccount}
+    <div
+      class="fixed inset-0 z-40 grid place-items-center bg-slate-900/20 px-5 backdrop-blur-[2px]"
+      role="presentation"
+      on:click={(event) => {
+        if (event.target === event.currentTarget) selectedAccount = null
+      }}
+    >
+      <div
+        class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-300/50"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="account-details-title"
+      >
+        <div class="flex items-center justify-between">
+          <h2 id="account-details-title" class="text-lg font-bold text-slate-900">账号详情</h2>
+          <button
+            class="grid size-8 place-items-center rounded-lg text-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+            aria-label="关闭账号详情"
+            on:click={() => (selectedAccount = null)}>×</button
+          >
+        </div>
+        <div class="mt-5 space-y-3 text-sm">
+          <div class="flex justify-between gap-4">
+            <span class="text-slate-400">账号</span><span class="truncate text-slate-700"
+              >{selectedAccount.name}</span
+            >
+          </div>
+          <div class="flex justify-between gap-4">
+            <span class="text-slate-400">邮箱</span><span class="truncate text-slate-700"
+              >{selectedAccount.email || '暂无邮箱'}</span
+            >
+          </div>
+          <div class="flex justify-between gap-4">
+            <span class="text-slate-400">套餐</span><span class="text-slate-700"
+              >{selectedAccount.planType || '未知'}</span
+            >
+          </div>
+          <div class="flex justify-between gap-4">
+            <span class="text-slate-400">状态</span><span class="text-slate-700"
+              >{statusText(selectedAccount)}</span
+            >
+          </div>
+          {#if selectedAccount.usage?.primaryWindow}<div class="flex justify-between gap-4">
+              <span class="text-slate-400">{windowLabel(selectedAccount.usage.primaryWindow)}</span
+              ><span class="text-slate-700"
+                >已用 {selectedAccount.usage.primaryWindow.usedPercent.toFixed(0)}% · {formatResetAt(
+                  selectedAccount.usage.primaryWindow.resetAt,
+                )} 重置</span
+              >
+            </div>{/if}
+          {#if selectedAccount.usage?.secondaryWindow}<div class="flex justify-between gap-4">
+              <span class="text-slate-400"
+                >{windowLabel(selectedAccount.usage.secondaryWindow)}</span
+              ><span class="text-slate-700"
+                >已用 {selectedAccount.usage.secondaryWindow.usedPercent.toFixed(0)}% · {formatResetAt(
+                  selectedAccount.usage.secondaryWindow.resetAt,
+                )} 重置</span
+              >
+            </div>{/if}
+          <div class="flex justify-between gap-4">
+            <span class="text-slate-400">上次更新</span><span class="text-slate-700"
+              >{updatedLabel(selectedAccount.usageUpdatedAt)}</span
+            >
+          </div>
+        </div>
+      </div>
+    </div>
+  {/if}
 
   {#if showSettings}
     <div
