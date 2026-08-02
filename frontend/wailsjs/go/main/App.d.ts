@@ -10,6 +10,8 @@ export function ConfigureFinchGateway():Promise<void>;
 
 export function GetGatewayPort():Promise<number>;
 
+export function GetLastGatewayRequest():Promise<Record<string, any>>;
+
 export function GetSyncInterval():Promise<number>;
 
 export function IsGatewayRunning():Promise<boolean>;

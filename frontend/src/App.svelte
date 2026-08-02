@@ -12,6 +12,7 @@
     GetGatewayPort,
     SetGatewayPort,
     IsGatewayRunning,
+    GetLastGatewayRequest,
     StartGateway,
     StopGateway,
     ConfigureFinchGateway,
@@ -39,6 +40,8 @@
   let showSettingsJson = false
   let gatewaySettingsExpanded = true
   let syncIntervalError = ''
+  /** @type {{ accountId?: string, accountName?: string, at?: number }} */
+  let lastGatewayRequest = {}
 
   /** @param {MouseEvent} event */
   function closeFinchMenuOnOutsideClick(event) {
@@ -71,6 +74,14 @@
     },
     { total: 0, used: 0, remaining: 0, exhausted: 0 },
   )
+
+  async function refreshLastGatewayRequest() {
+    try {
+      lastGatewayRequest = await GetLastGatewayRequest()
+    } catch {
+      // Keep the account page usable when the gateway status is unavailable.
+    }
+  }
 
   async function refresh() {
     try {
@@ -197,7 +208,9 @@
 
   onMount(() => {
     refresh().then(() => syncProfiles())
+    refreshLastGatewayRequest()
     const timer = setInterval(() => {
+      refreshLastGatewayRequest()
       if (accounts.some((account) => account.status === 'logging_in')) refresh()
     }, 1000)
     return () => clearInterval(timer)
@@ -216,7 +229,7 @@
       </div>
       <div>
         <p class="mb-0.5 text-xs font-bold tracking-[0.2em] text-slate-400">MUX</p>
-        <h1 class="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Codex 账号</h1>
+        <h1 class="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">账号管理</h1>
       </div>
       <div class="ml-auto flex items-center gap-2">
         <button
@@ -377,17 +390,32 @@
                 <p class="mt-1 text-xs text-slate-400">套餐：{account.planType || '未知'}</p>
               </div>
             </div>
-            <div class="group/refresh relative">
-              <button
-                class="grid size-8 place-items-center rounded-lg text-xl leading-none text-slate-400 transition hover:bg-slate-100 hover:text-indigo-600 disabled:cursor-wait disabled:opacity-50"
-                aria-label={`刷新 ${account.name} 用户信息`}
-                disabled={Boolean(updatingAccountId)}
-                on:click={() => updateAccount(account)}>↻</button
-              >
+            <div class="flex items-center gap-1">
               <span
-                class="pointer-events-none absolute right-0 top-full z-30 mt-2 hidden whitespace-nowrap rounded-lg bg-slate-800 px-3 py-1.5 text-xs text-white shadow-lg group-hover/refresh:block"
-                >{updatedLabel(account.usageUpdatedAt)}</span
+                class={`tooltip grid size-8 place-items-center rounded-lg ${lastGatewayRequest.accountId === account.id ? 'text-emerald-500' : 'text-slate-300'}`}
+                data-tooltip={lastGatewayRequest.accountId === account.id
+                  ? '最近请求命中此账号'
+                  : '暂无最近请求'}
+                aria-label={lastGatewayRequest.accountId === account.id
+                  ? '最近请求命中此账号'
+                  : '暂无最近请求'}
               >
+                <span
+                  class={`size-2.5 rounded-full ${lastGatewayRequest.accountId === account.id ? 'bg-emerald-500 shadow-[0_0_0_4px_rgb(16_185_129_/_15%)]' : 'bg-slate-300'}`}
+                ></span>
+              </span>
+              <div class="group/refresh relative">
+                <button
+                  class="grid size-8 place-items-center rounded-lg text-xl leading-none text-slate-400 transition hover:bg-slate-100 hover:text-indigo-600 disabled:cursor-wait disabled:opacity-50"
+                  aria-label={`刷新 ${account.name} 用户信息`}
+                  disabled={Boolean(updatingAccountId)}
+                  on:click={() => updateAccount(account)}>↻</button
+                >
+                <span
+                  class="pointer-events-none absolute right-0 top-full z-30 mt-2 hidden whitespace-nowrap rounded-lg bg-slate-800 px-3 py-1.5 text-xs text-white shadow-lg group-hover/refresh:block"
+                  >{updatedLabel(account.usageUpdatedAt)}</span
+                >
+              </div>
             </div>
           </div>
 
