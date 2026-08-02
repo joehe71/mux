@@ -6,6 +6,10 @@ export function AddAccount(arg1) {
   return window['go']['main']['App']['AddAccount'](arg1);
 }
 
+export function CancelLogin(arg1) {
+  return window['go']['main']['App']['CancelLogin'](arg1);
+}
+
 export function ListAccounts() {
   return window['go']['main']['App']['ListAccounts']();
 }
@@ -20,4 +24,8 @@ export function RemoveAccount(arg1) {
 
 export function SetActiveAccount(arg1) {
   return window['go']['main']['App']['SetActiveAccount'](arg1);
+}
+
+export function UpdateAccount(arg1) {
+  return window['go']['main']['App']['UpdateAccount'](arg1);
 }

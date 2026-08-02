@@ -2,18 +2,22 @@
   import { onMount } from 'svelte'
   import {
     AddAccount,
+    CancelLogin,
     ListAccounts,
     LoginAccount,
     RemoveAccount,
-    SetActiveAccount,
+    UpdateAccount,
   } from '../wailsjs/go/main/App.js'
 
-  /** @typedef {{ id: string, name: string, profilePath: string, status: string, createdAt: string, lastUsedAt?: string, error?: string, active: boolean }} Account */
+  /** @typedef {{ id: string, name: string, email?: string, avatarUrl?: string, planType?: string, profilePath: string, status: string, createdAt: string, lastUsedAt?: string, error?: string, active: boolean }} Account */
 
   /** @type {Account[]} */
   let accounts = []
-  let name = ''
   let error = ''
+  let saving = false
+  let openMenuId = ''
+  let updatingAccountId = ''
+  let toast = ''
 
   async function refresh() {
     try {
@@ -24,19 +28,31 @@
     }
   }
 
+    /** @param {MouseEvent} event */
+  function closeMenuOnOutsideClick(event) {
+    const target = /** @type {HTMLElement | null} */ (event.target)
+    if (!target?.closest('.card-menu')) openMenuId = ''
+  }
+
   async function addAccount() {
-    if (!name.trim()) return
+    if (saving) return
+    saving = true
+    error = ''
     try {
-      await AddAccount(name.trim())
-      name = ''
-      await refresh()
+      const added = await AddAccount('')
+      accounts = await ListAccounts()
+      if (added) await login(added)
     } catch (err) {
       error = String(err)
+    } finally {
+      saving = false
     }
   }
 
   /** @param {Account} account */
   async function login(account) {
+    openMenuId = ''
+    error = ''
     try {
       await LoginAccount(account.id)
       await refresh()
@@ -46,12 +62,47 @@
   }
 
   /** @param {Account} account */
-  async function activate(account) {
+  async function updateAccount(account) {
+    if (updatingAccountId) return
+    openMenuId = ''
+    error = ''
+    toast = ''
+    updatingAccountId = account.id
     try {
-      await SetActiveAccount(account.id)
+      await UpdateAccount(account.id)
       await refresh()
+      toast = '账号信息更新完成'
+      setTimeout(() => {
+        toast = ''
+      }, 2500)
     } catch (err) {
       error = String(err)
+    } finally {
+      updatingAccountId = ''
+    }
+  }
+
+  async function syncProfiles() {
+    const currentAccounts = await ListAccounts()
+    await Promise.all(currentAccounts.map(async (account) => {
+      try {
+        await UpdateAccount(account.id)
+      } catch {
+        // 没有凭据或 token 已失效时，保留现有本地资料。
+      }
+    }))
+    await refresh()
+  }
+
+  /** @param {Account} account */
+  async function cancelLogin(account) {
+    try {
+      await CancelLogin(account.id)
+    } catch (err) {
+      // 登录可能已在用户点击前结束，取消操作应保持幂等。
+      if (!String(err).includes('not in progress')) error = String(err)
+    } finally {
+      await refresh()
     }
   }
 
@@ -59,14 +110,31 @@
   async function remove(account) {
     try {
       await RemoveAccount(account.id)
+      openMenuId = ''
       await refresh()
     } catch (err) {
       error = String(err)
     }
   }
 
+  /** @param {Account} account */
+  function statusText(account) {
+    if (account.status === 'logging_in') return '登录中…'
+    if (account.error || account.status === 'error') return '登录失败'
+    if (account.status === 'expired') return '已过期'
+    if (account.status === 'creating') return '初始化中…'
+    return '正常'
+  }
+
+  /** @param {string | undefined} value */
+  function formatDate(value) {
+    if (!value) return '暂无记录'
+    const date = new Date(value)
+    return Number.isNaN(date.getTime()) ? '暂无记录' : date.toLocaleDateString('zh-CN')
+  }
+
   onMount(() => {
-    refresh()
+    refresh().then(() => syncProfiles())
     const timer = setInterval(() => {
       if (accounts.some((account) => account.status === 'logging_in')) refresh()
     }, 1000)
@@ -74,114 +142,93 @@
   })
 </script>
 
-<main>
-  <h1>账号管理</h1>
-  <p class="hint">认证信息由官方登录流程管理，Mux 只保存账号元数据和独立 Profile。</p>
+<svelte:window
+  on:click={closeMenuOnOutsideClick}
+/>
 
-  <section class="add-account">
-    <input
-      bind:value={name}
-      placeholder="账号名称"
-      on:keydown={(event) => event.key === 'Enter' && addAccount()}
-    />
-    <button on:click={addAccount}>添加账号</button>
-  </section>
+<main class="min-h-screen bg-white px-5 py-6 sm:px-8 sm:py-8 lg:px-12 lg:py-10">
+  <section class="min-h-screen w-full bg-white sm:min-h-0">
+    <header class="flex flex-wrap items-center gap-3 sm:gap-4">
+      <div class="grid size-12 shrink-0 place-items-center rounded-2xl bg-indigo-600 text-xl font-bold text-white shadow-lg shadow-indigo-200">M</div>
+      <div>
+        <p class="mb-0.5 text-xs font-bold tracking-[0.2em] text-slate-400">MUX</p>
+        <h1 class="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Codex 账号</h1>
+      </div>
+      <span class="ml-auto rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-500">{accounts.length} 个账号</span>
+    </header>
 
-  {#if error}
-    <p class="error">{error}</p>
-  {/if}
+    <div class="my-8 h-px bg-slate-100"></div>
 
-  <section class="accounts">
-    {#if accounts.length === 0}
-      <p class="empty">还没有账号</p>
-    {:else}
+    {#if error}
+      <p class="mb-5 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600" role="alert">{error}</p>
+    {/if}
+
+    <section class="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4" aria-label="Codex 账号列表">
       {#each accounts as account (account.id)}
-        <article class:active={account.active}>
-          <div>
-            <strong>{account.name}</strong>
-            <span>{account.status}</span>
-            {#if account.error}<small class="account-error">{account.error}</small>{/if}
+        <article class="group relative flex min-h-[260px] flex-col rounded-2xl border bg-white p-4 transition hover:-translate-y-0.5 hover:shadow-lg hover:shadow-slate-200/70 sm:min-h-[280px] sm:p-5" class:border-indigo-300={account.active} class:shadow-lg={account.active} class:shadow-indigo-100={account.active} class:border-slate-200={!account.active}>
+          <div class="flex items-start justify-between gap-4">
+            <div class="flex min-w-0 items-center gap-4">
+              {#if account.avatarUrl}
+                <img class="size-16 shrink-0 rounded-2xl object-cover" src={account.avatarUrl} alt={`${account.name} 头像`} />
+              {:else}
+                <span class="grid size-16 shrink-0 place-items-center rounded-2xl bg-indigo-100 text-2xl font-semibold text-indigo-600">{account.name.slice(0, 1).toUpperCase()}</span>
+              {/if}
+              <div class="min-w-0">
+                <h2 class="truncate text-lg font-bold text-slate-900">{account.name}</h2>
+                <p class="mt-1 truncate text-sm text-slate-500">{account.email || '暂无邮箱'}</p>
+                <p class="mt-1 text-xs text-slate-400">套餐：{account.planType || '未知'}</p>
+              </div>
+            </div>
+            <div class="card-menu relative">
+              <button class="grid size-8 place-items-center rounded-lg text-sm tracking-widest text-slate-400 transition hover:bg-slate-100 hover:text-indigo-600" aria-label={`打开 ${account.name} 操作菜单`} aria-expanded={openMenuId === account.id} on:click|stopPropagation={() => openMenuId = openMenuId === account.id ? '' : account.id}>•••</button>
+              {#if openMenuId === account.id}
+                <div class="absolute right-0 top-10 z-10 w-40 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-300/40">
+                  <button class="block w-full rounded-lg px-3 py-2 text-left text-xs text-slate-600 hover:bg-slate-50" on:click={() => updateAccount(account)}>更新账号信息</button>
+                  <button class="block w-full rounded-lg px-3 py-2 text-left text-xs text-red-500 hover:bg-red-50" on:click={() => remove(account)}>删除账号</button>
+                </div>
+              {/if}
+            </div>
           </div>
-          <div class="actions">
-            {#if !account.active}<button on:click={() => activate(account)}>设为当前</button>{/if}
+
+          <div class="mt-5 flex flex-1 flex-col">
+            <p class="flex items-center gap-2 text-xs" aria-label="账号状态">
+              <span class="text-slate-400">账号状态：</span>
+              <span class="size-2 rounded-full bg-emerald-400" class:bg-red-400={account.error} class:bg-amber-400={account.status === 'logging_in'}></span>
+              <span class:text-red-500={account.error} class:text-amber-500={account.status === 'logging_in'}>{statusText(account)}</span>
+            </p>
+            <dl class="mt-5 space-y-2 border-t border-slate-100 pt-4 text-[11px]">
+              <div class="flex justify-between gap-3"><dt class="text-slate-400">创建时间</dt><dd class="truncate text-slate-600">{formatDate(account.createdAt)}</dd></div>
+              <div class="flex justify-between gap-3"><dt class="text-slate-400">最近使用</dt><dd class="truncate text-slate-600">{formatDate(account.lastUsedAt)}</dd></div>
+            </dl>
+            {#if account.error}<small class="mt-2 block text-[11px] text-red-500">{account.error}</small>{/if}
+          </div>
+          <div class="mt-5 flex items-center gap-3 border-t border-slate-100 pt-4">
             {#if account.status !== 'logging_in'}
-              <button on:click={() => login(account)}>登录</button>
-            {:else}
-              <span class="logging">登录中…</span>
-            {/if}
-            <button class="danger" on:click={() => remove(account)}>删除</button>
+              <button class="text-xs font-semibold text-indigo-600 hover:text-indigo-800" on:click={() => login(account)}>重新登录</button>
+            {:else}<button class="text-xs font-semibold text-amber-600 hover:text-amber-800" on:click={() => cancelLogin(account)}>取消登录</button>{/if}
           </div>
+          {#if updatingAccountId === account.id}
+            <div class="absolute inset-0 z-20 grid place-items-center rounded-2xl bg-white/75 backdrop-blur-[1px]">
+              <div class="flex items-center gap-3 rounded-xl bg-white px-4 py-3 text-sm font-medium text-indigo-600 shadow-lg shadow-slate-200">
+                <span class="size-5 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-600"></span>
+                更新中…
+              </div>
+            </div>
+          {/if}
         </article>
       {/each}
-    {/if}
+
+      <button class="group flex min-h-[180px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-300 bg-slate-50/60 text-slate-400 transition hover:-translate-y-0.5 hover:border-indigo-400 hover:bg-indigo-50/40 sm:min-h-[280px]" aria-label="新增 Codex 账号" on:click={addAccount}>
+        <span class="text-5xl font-light leading-none text-indigo-500 transition group-hover:scale-110">+</span>
+        <strong class="text-sm text-slate-600">添加账号</strong>
+        <span class="text-xs text-slate-400">登录新的 Codex 账号</span>
+      </button>
+    </section>
+
+    {#if accounts.length === 0}<p class="mt-6 text-center text-sm text-slate-400">还没有账号，点击上方卡片开始登录</p>{/if}
   </section>
 </main>
 
-<style>
-  main {
-    max-width: 760px;
-    margin: 0 auto;
-    padding: 48px;
-    color: #222;
-  }
-  h1 {
-    margin-bottom: 8px;
-  }
-  .hint {
-    color: #666;
-  }
-  .add-account,
-  .actions {
-    display: flex;
-    gap: 8px;
-  }
-  .add-account {
-    margin: 32px 0 20px;
-  }
-  input {
-    flex: 1;
-    padding: 10px;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-  }
-  button {
-    padding: 9px 14px;
-    border: 0;
-    border-radius: 6px;
-    cursor: pointer;
-  }
-  article {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    padding: 16px;
-    margin: 10px 0;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-  }
-  article.active {
-    border-color: #4f7cff;
-  }
-  article span {
-    display: block;
-    margin-top: 5px;
-    color: #777;
-    font-size: 13px;
-  }
-  .danger {
-    color: #b42318;
-  }
-  .error {
-    color: #b42318;
-  }
-  .account-error {
-    display: block;
-    max-width: 520px;
-    color: #b42318;
-    font-size: 12px;
-  }
-  .empty {
-    color: #777;
-  }
-</style>
+{#if toast}
+  <div class="fixed right-5 top-5 z-50 rounded-xl border border-emerald-100 bg-white px-4 py-3 text-sm font-medium text-emerald-600 shadow-xl shadow-slate-200" role="status">✓ {toast}</div>
+{/if}

@@ -64,6 +64,38 @@ func (a *App) AddAccount(name string) (AccountView, error) {
 	return AccountView{Account: account, Active: account.ID == a.store.Active()}, nil
 }
 
+func (a *App) UpdateAccount(id string) error {
+	if a.initErr != nil {
+		return a.initErr
+	}
+	secret, err := securestore.Get(id)
+	if err != nil {
+		return fmt.Errorf("get account credentials from Keychain: %w", err)
+	}
+	var credentials codexoauth.Credentials
+	if err := json.Unmarshal([]byte(secret), &credentials); err != nil {
+		return fmt.Errorf("decode account credentials: %w", err)
+	}
+	ctx, cancel := context.WithTimeout(a.ctx, 15*time.Second)
+	defer cancel()
+	profile, err := codexoauth.UserInfo(ctx, credentials.AccessToken)
+	if err != nil {
+		return err
+	}
+	name := profile.Name
+	if name == "" {
+		name = profile.Email
+	}
+	if name == "" {
+		name = credentials.AccountID
+	}
+	planType := credentials.PlanType
+	if tokenPlan, err := codexoauth.PlanTypeFromAccessToken(credentials.AccessToken); err == nil {
+		planType = tokenPlan
+	}
+	return a.store.UpdateProfile(id, name, profile.Email, profile.Avatar, planType)
+}
+
 func (a *App) SetActiveAccount(id string) error {
 	if a.initErr != nil {
 		return a.initErr
@@ -119,6 +151,20 @@ func (a *App) runLogin(ctx context.Context, account accounts.Account) error {
 	}
 	if err := securestore.Set(account.ID, string(secret)); err != nil {
 		return a.loginFailure(account.ID, fmt.Errorf("save credentials to Keychain: %w", err))
+	}
+	profile, err := codexoauth.UserInfo(ctx, credentials.AccessToken)
+	if err != nil {
+		profile.Name = credentials.DisplayName
+	}
+	name := profile.Name
+	if name == "" {
+		name = profile.Email
+	}
+	if name == "" {
+		name = credentials.AccountID
+	}
+	if err := a.store.UpdateProfile(account.ID, name, profile.Email, profile.Avatar, credentials.PlanType); err != nil {
+		return a.loginFailure(account.ID, fmt.Errorf("save account profile: %w", err))
 	}
 	if err := a.store.SetStatus(account.ID, accounts.StatusReady, ""); err != nil {
 		return fmt.Errorf("set account ready status: %w", err)

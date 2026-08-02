@@ -25,6 +25,9 @@ const (
 type Account struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
+	Email       string `json:"email,omitempty"`
+	AvatarURL   string `json:"avatarUrl,omitempty"`
+	PlanType    string `json:"planType,omitempty"`
 	ProfilePath string `json:"profilePath"`
 	Status      Status `json:"status"`
 	CreatedAt   string `json:"createdAt"`
@@ -105,12 +108,12 @@ func (s *Store) Active() string {
 }
 
 func (s *Store) Create(name string) (Account, error) {
-	if name == "" {
-		return Account{}, errors.New("account name is required")
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	id := uuid.NewString()
+	if name == "" {
+		name = id
+	}
 	profilePath := filepath.Join(s.root, "profiles", id)
 	if err := os.MkdirAll(profilePath, 0o700); err != nil {
 		return Account{}, fmt.Errorf("create account profile: %w", err)
@@ -124,6 +127,24 @@ func (s *Store) Create(name string) (Account, error) {
 		return Account{}, err
 	}
 	return account, nil
+}
+
+func (s *Store) UpdateProfile(id string, name string, email string, avatarURL string, planType string) error {
+	if name == "" {
+		return errors.New("account name is required")
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.data.Accounts {
+		if s.data.Accounts[i].ID == id {
+			s.data.Accounts[i].Name = name
+			s.data.Accounts[i].Email = email
+			s.data.Accounts[i].AvatarURL = avatarURL
+			s.data.Accounts[i].PlanType = planType
+			return s.saveLocked()
+		}
+	}
+	return errors.New("account not found")
 }
 
 func (s *Store) SetStatus(id string, status Status, message string) error {

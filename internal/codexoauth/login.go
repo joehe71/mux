@@ -22,6 +22,7 @@ const (
 	clientID              = "app_EMoamEEZ73f0CkXaXp7hrann"
 	authorizeURL          = "https://auth.openai.com/oauth/authorize"
 	oauthExchangeEndpoint = "https://auth.openai.com/oauth/token"
+	userinfoEndpoint      = "https://auth.openai.com/api/accounts/oauth/userinfo"
 	redirectURI           = "http://localhost:1455/auth/callback"
 	scope                 = "openid profile email offline_access"
 )
@@ -31,6 +32,8 @@ type Credentials struct {
 	RefreshToken string `json:"refreshToken"`
 	ExpiresAt    int64  `json:"expiresAt"`
 	AccountID    string `json:"accountId"`
+	DisplayName  string `json:"displayName,omitempty"`
+	PlanType     string `json:"planType,omitempty"`
 }
 
 type tokenResponse struct {
@@ -168,6 +171,43 @@ func callbackHandler(config callbackConfig, resultCh chan<- callbackResult, retu
 	return mux
 }
 
+type UserProfile struct {
+	Name   string `json:"name"`
+	Email  string `json:"email"`
+	Avatar string `json:"picture"`
+}
+
+func UserInfo(ctx context.Context, accessToken string) (UserProfile, error) {
+	if accessToken == "" {
+		return UserProfile{}, errors.New("access token is empty")
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, userinfoEndpoint, nil)
+	if err != nil {
+		return UserProfile{}, fmt.Errorf("create userinfo request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return UserProfile{}, fmt.Errorf("request userinfo: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return UserProfile{}, fmt.Errorf("read userinfo response: %w", err)
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return UserProfile{}, fmt.Errorf("userinfo request failed (%s)", resp.Status)
+	}
+	var info UserProfile
+	if err := json.Unmarshal(body, &info); err != nil {
+		return UserProfile{}, fmt.Errorf("decode userinfo response: %w", err)
+	}
+	if info.Name == "" && info.Email == "" {
+		return UserProfile{}, errors.New("userinfo response contains no name or email")
+	}
+	return info, nil
+}
+
 func exchange(ctx context.Context, code, verifier string) (Credentials, error) {
 	form := url.Values{}
 	form.Set("grant_type", "authorization_code")
@@ -199,38 +239,62 @@ func exchange(ctx context.Context, code, verifier string) (Credentials, error) {
 	if token.AccessToken == "" || token.RefreshToken == "" || token.ExpiresIn <= 0 {
 		return Credentials{}, errors.New("token response missing required fields")
 	}
-	accountID, err := accountIDFromJWT(token.AccessToken)
+	accountID, displayName, planType, err := claimsFromJWT(token.AccessToken)
 	if err != nil {
 		return Credentials{}, err
 	}
 	return Credentials{
 		AccessToken: token.AccessToken, RefreshToken: token.RefreshToken,
 		ExpiresAt: time.Now().Add(time.Duration(token.ExpiresIn) * time.Second).UnixMilli(),
-		AccountID: accountID,
+		AccountID: accountID, DisplayName: displayName, PlanType: planType,
 	}, nil
 }
 
+func PlanTypeFromAccessToken(token string) (string, error) {
+	_, _, planType, err := claimsFromJWT(token)
+	return planType, err
+}
+
 func accountIDFromJWT(token string) (string, error) {
+	accountID, _, _, err := claimsFromJWT(token)
+	return accountID, err
+}
+
+func claimsFromJWT(token string) (string, string, string, error) {
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {
-		return "", errors.New("invalid access token")
+		return "", "", "", errors.New("invalid access token")
 	}
 	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
 	if err != nil {
-		return "", fmt.Errorf("decode access token: %w", err)
+		return "", "", "", fmt.Errorf("decode access token: %w", err)
 	}
 	var claims map[string]json.RawMessage
 	if err := json.Unmarshal(payload, &claims); err != nil {
-		return "", fmt.Errorf("decode access token claims: %w", err)
+		return "", "", "", fmt.Errorf("decode access token claims: %w", err)
 	}
 	var auth struct {
 		AccountID string `json:"chatgpt_account_id"`
+		PlanType  string `json:"chatgpt_plan_type"`
 	}
 	raw, ok := claims["https://api.openai.com/auth"]
 	if !ok || json.Unmarshal(raw, &auth) != nil || auth.AccountID == "" {
-		return "", errors.New("access token does not contain ChatGPT account ID")
+		return "", "", "", errors.New("access token does not contain ChatGPT account ID")
 	}
-	return auth.AccountID, nil
+	var displayName string
+	var planType string
+	for _, key := range []string{"name", "preferred_username", "email"} {
+		if raw, ok := claims[key]; ok && json.Unmarshal(raw, &displayName) == nil && displayName != "" {
+			break
+		}
+	}
+	if raw, ok := claims["chatgpt_plan_type"]; ok {
+		_ = json.Unmarshal(raw, &planType)
+	}
+	if planType == "" {
+		planType = auth.PlanType
+	}
+	return auth.AccountID, displayName, planType, nil
 }
 
 func randomString(size int) (string, error) {
