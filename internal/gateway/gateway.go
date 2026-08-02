@@ -84,6 +84,17 @@ func (g *Gateway) handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer func() { _ = response.Body.Close() }()
+	if response.StatusCode >= http.StatusBadRequest {
+		upstreamBody, readErr := io.ReadAll(io.LimitReader(response.Body, 64<<10))
+		if g.logger != nil {
+			g.logger.Error("codex upstream request failed", "status", response.StatusCode, "body", string(upstreamBody), "read_error", readErr)
+		}
+		writeCORS(w)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(response.StatusCode)
+		_, _ = w.Write(upstreamBody)
+		return
+	}
 	writeCORS(w)
 	for key, values := range response.Header {
 		for _, value := range values {
