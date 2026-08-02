@@ -63,5 +63,5 @@ jobs:
 
       - name: Modernize
         run: |
-          go list ./... | \
+          go list ./... | grep -v '/node_modules/' | \
             xargs go run golang.org/x/tools/go/analysis/passes/modernize/cmd/modernize@latest -test=false
