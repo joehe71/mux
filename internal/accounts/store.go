@@ -22,17 +22,35 @@ const (
 	StatusError     Status = "error"
 )
 
+type UsageWindow struct {
+	UsedPercent        float64 `json:"usedPercent"`
+	LimitWindowSeconds int64   `json:"limitWindowSeconds"`
+	ResetAt            int64   `json:"resetAt"`
+}
+
+type Usage struct {
+	PlanType        string       `json:"planType,omitempty"`
+	PrimaryWindow   *UsageWindow `json:"primaryWindow,omitempty"`
+	SecondaryWindow *UsageWindow `json:"secondaryWindow,omitempty"`
+	LimitReached    bool         `json:"limitReached"`
+	HasCredits      bool         `json:"hasCredits"`
+	Unlimited       bool         `json:"unlimited"`
+	Balance         string       `json:"balance,omitempty"`
+}
+
 type Account struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Email       string `json:"email,omitempty"`
-	AvatarURL   string `json:"avatarUrl,omitempty"`
-	PlanType    string `json:"planType,omitempty"`
-	ProfilePath string `json:"profilePath"`
-	Status      Status `json:"status"`
-	CreatedAt   string `json:"createdAt"`
-	LastUsedAt  string `json:"lastUsedAt,omitempty"`
-	Error       string `json:"error,omitempty"`
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	Email          string `json:"email,omitempty"`
+	AvatarURL      string `json:"avatarUrl,omitempty"`
+	PlanType       string `json:"planType,omitempty"`
+	ProfilePath    string `json:"profilePath"`
+	Status         Status `json:"status"`
+	CreatedAt      string `json:"createdAt"`
+	LastUsedAt     string `json:"lastUsedAt,omitempty"`
+	Error          string `json:"error,omitempty"`
+	Usage          *Usage `json:"usage,omitempty"`
+	UsageUpdatedAt string `json:"usageUpdatedAt,omitempty"`
 }
 
 type data struct {
@@ -93,6 +111,10 @@ func (s *Store) saveLocked() error {
 	return nil
 }
 
+func (s *Store) Root() string {
+	return s.root
+}
+
 func (s *Store) List() []Account {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -141,6 +163,19 @@ func (s *Store) UpdateProfile(id string, name string, email string, avatarURL st
 			s.data.Accounts[i].Email = email
 			s.data.Accounts[i].AvatarURL = avatarURL
 			s.data.Accounts[i].PlanType = planType
+			return s.saveLocked()
+		}
+	}
+	return errors.New("account not found")
+}
+
+func (s *Store) SetUsage(id string, usage *Usage) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.data.Accounts {
+		if s.data.Accounts[i].ID == id {
+			s.data.Accounts[i].Usage = usage
+			s.data.Accounts[i].UsageUpdatedAt = time.Now().UTC().Format(time.RFC3339)
 			return s.saveLocked()
 		}
 	}

@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os/exec"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -20,6 +22,9 @@ type App struct {
 	initErr      error
 	loginMu      sync.Mutex
 	loginCancels map[string]context.CancelFunc
+	syncMu       sync.Mutex
+	syncMinutes  int
+	syncChanges  chan time.Duration
 }
 
 type AccountView struct {
@@ -33,11 +38,70 @@ func NewApp() *App {
 		store:        store,
 		initErr:      err,
 		loginCancels: make(map[string]context.CancelFunc),
+		syncMinutes:  10,
+		syncChanges:  make(chan time.Duration),
 	}
 }
 
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	go a.startAccountSync(ctx)
+}
+
+func (a *App) startAccountSync(ctx context.Context) {
+	sync := func() {
+		for _, account := range a.store.List() {
+			if err := a.UpdateAccount(account.ID); err != nil {
+				// 单个账号凭据失效或网络异常时，继续更新其他账号。
+				continue
+			}
+		}
+	}
+
+	sync()
+	a.syncMu.Lock()
+	ticker := time.NewTicker(time.Duration(a.syncMinutes) * time.Minute)
+	a.syncMu.Unlock()
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			sync()
+		case interval := <-a.syncChanges:
+			ticker.Stop()
+			ticker = time.NewTicker(interval)
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+func (a *App) SetSyncInterval(minutes int) error {
+	if minutes < 5 {
+		return errors.New("sync interval must be at least 5 minutes")
+	}
+	a.syncMu.Lock()
+	a.syncMinutes = minutes
+	a.syncMu.Unlock()
+	select {
+	case a.syncChanges <- time.Duration(minutes) * time.Minute:
+	default:
+	}
+	return nil
+}
+
+func (a *App) GetSyncInterval() int {
+	a.syncMu.Lock()
+	defer a.syncMu.Unlock()
+	return a.syncMinutes
+}
+
+func (a *App) OpenConfigFileFolder() error {
+	if a.initErr != nil {
+		return a.initErr
+	}
+	cmd := exec.Command("open", "-R", filepath.Join(a.store.Root(), "accounts.json"))
+	return cmd.Run()
 }
 
 func (a *App) ListAccounts() ([]AccountView, error) {
@@ -93,7 +157,36 @@ func (a *App) UpdateAccount(id string) error {
 	if tokenPlan, err := codexoauth.PlanTypeFromAccessToken(credentials.AccessToken); err == nil {
 		planType = tokenPlan
 	}
-	return a.store.UpdateProfile(id, name, profile.Email, profile.Avatar, planType)
+	if err := a.store.UpdateProfile(id, name, profile.Email, profile.Avatar, planType); err != nil {
+		return err
+	}
+	usage, err := codexoauth.UsageInfo(ctx, credentials.AccessToken, credentials.AccountID)
+	if err != nil {
+		return err
+	}
+	return a.store.SetUsage(id, usageView(usage))
+}
+
+func usageView(usage codexoauth.Usage) *accounts.Usage {
+	result := &accounts.Usage{PlanType: usage.PlanType}
+	if usage.RateLimit != nil {
+		result.LimitReached = usage.RateLimit.LimitReached
+		result.PrimaryWindow = usageWindowView(usage.RateLimit.PrimaryWindow)
+		result.SecondaryWindow = usageWindowView(usage.RateLimit.SecondaryWindow)
+	}
+	if usage.Credits != nil {
+		result.HasCredits = usage.Credits.HasCredits
+		result.Unlimited = usage.Credits.Unlimited
+		result.Balance = usage.Credits.Balance
+	}
+	return result
+}
+
+func usageWindowView(window *codexoauth.UsageWindow) *accounts.UsageWindow {
+	if window == nil {
+		return nil
+	}
+	return &accounts.UsageWindow{UsedPercent: window.UsedPercent, LimitWindowSeconds: window.LimitWindowSeconds, ResetAt: window.ResetAt}
 }
 
 func (a *App) SetActiveAccount(id string) error {
