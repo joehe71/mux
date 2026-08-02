@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 	"mux/internal/accounts"
 	"mux/internal/codexoauth"
 	"mux/internal/securestore"
@@ -98,8 +97,6 @@ func (a *App) runLogin(account accounts.Account) {
 	if err := a.store.SetStatus(account.ID, accounts.StatusReady, ""); err != nil {
 		return
 	}
-	wailsruntime.WindowShow(a.ctx)
-	wailsruntime.WindowUnminimise(a.ctx)
 }
 
 func (a *App) RemoveAccount(id string) error {
