@@ -98,9 +98,6 @@ func (a *App) startup(ctx context.Context) {
 	if a.gatewayPort == 0 {
 		a.gatewayPort = 8787
 	}
-	if err := a.StartGateway(); err != nil && a.logger != nil {
-		a.logger.Error("gateway start failed", slog.Any("error", err), slog.Int("port", a.gatewayPort))
-	}
 	go a.startAccountSync(ctx)
 }
 

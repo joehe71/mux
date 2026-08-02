@@ -32,7 +32,7 @@
   let selectedAccount = null
   let syncInterval = 10
   let gatewayPort = 8787
-  let gatewayEnabled = true
+  let gatewayEnabled = false
   let syncIntervalError = ''
 
   $: weeklyUsage = accounts.reduce(
