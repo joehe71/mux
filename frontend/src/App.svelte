@@ -418,7 +418,7 @@
             <div class="group/config relative">
               <button
                 class="grid size-8 place-items-center rounded-lg text-lg text-slate-400 hover:bg-indigo-50 hover:text-indigo-600"
-                aria-label="打开配置文件目录"
+                aria-label="打开应用目录"
                 on:click={async () => {
                   try {
                     await OpenConfigFileFolder()
@@ -445,7 +445,7 @@
               <span
                 class="pointer-events-none absolute left-0 top-full z-30 mt-2 hidden whitespace-nowrap rounded-lg bg-slate-800 px-3 py-1.5 text-xs text-white shadow-lg group-hover/config:block"
               >
-                打开配置文件目录
+                打开应用目录
               </span>
             </div>
           </div>

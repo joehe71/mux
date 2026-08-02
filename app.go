@@ -143,8 +143,7 @@ func (a *App) OpenConfigFileFolder() error {
 	if a.initErr != nil {
 		return a.initErr
 	}
-	cmd := exec.Command("open", "-R", filepath.Join(a.store.Root(), "accounts.json"))
-	return cmd.Run()
+	return exec.Command("open", a.store.Root()).Run()
 }
 
 func (a *App) ListAccounts() ([]AccountView, error) {
