@@ -336,12 +336,12 @@ func (a *App) ConfigureFinchGateway() error {
 		"enabled":  true,
 		"isCustom": true,
 		"models": []any{
-			map[string]any{"id": "gpt-5.6-sol", "apiId": "gpt-5.6-sol", "name": "GPT-5.6 Sol", "enabled": true, "contextLength": 372000, "isDefault": true, "defaultReasoningEffort": "medium"},
-			map[string]any{"id": "gpt-5.6-terra", "apiId": "gpt-5.6-terra", "name": "GPT-5.6 Terra", "enabled": true, "contextLength": 372000, "defaultReasoningEffort": "medium"},
-			map[string]any{"id": "gpt-5.6-luna", "apiId": "gpt-5.6-luna", "name": "GPT-5.6 Luna", "enabled": true, "contextLength": 372000, "instant": true, "defaultReasoningEffort": "low"},
-			map[string]any{"id": "gpt-5.5", "apiId": "gpt-5.5", "name": "GPT-5.5", "enabled": true, "contextLength": 272000, "defaultReasoningEffort": "medium"},
-			map[string]any{"id": "gpt-5.4", "apiId": "gpt-5.4", "name": "GPT-5.4", "enabled": true, "contextLength": 272000, "defaultReasoningEffort": "medium"},
-			map[string]any{"id": "gpt-5.4-mini", "apiId": "gpt-5.4-mini", "name": "GPT-5.4 mini", "enabled": true, "contextLength": 400000, "instant": true, "defaultReasoningEffort": "low"},
+			map[string]any{"id": "gpt-5.6-sol", "name": "gpt-5.6-sol", "alias": "GPT-5.6 Sol", "enabled": true, "contextLength": 372000, "isDefault": true, "defaultReasoningEffort": "medium"},
+			map[string]any{"id": "gpt-5.6-terra", "name": "gpt-5.6-terra", "alias": "GPT-5.6 Terra", "enabled": true, "contextLength": 372000, "defaultReasoningEffort": "medium"},
+			map[string]any{"id": "gpt-5.6-luna", "name": "gpt-5.6-luna", "alias": "GPT-5.6 Luna", "enabled": true, "contextLength": 372000, "instant": true, "defaultReasoningEffort": "low"},
+			map[string]any{"id": "gpt-5.5", "name": "gpt-5.5", "alias": "GPT-5.5", "enabled": true, "contextLength": 272000, "defaultReasoningEffort": "medium"},
+			map[string]any{"id": "gpt-5.4", "name": "gpt-5.4", "alias": "GPT-5.4", "enabled": true, "contextLength": 272000, "defaultReasoningEffort": "medium"},
+			map[string]any{"id": "gpt-5.4-mini", "name": "gpt-5.4-mini", "alias": "GPT-5.4 mini", "enabled": true, "contextLength": 400000, "instant": true, "defaultReasoningEffort": "low"},
 		},
 	}
 	providers, _ := stored["customProviders"].([]any)
