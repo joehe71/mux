@@ -10,7 +10,10 @@ import (
 func TestCallbackHandlerRejectsInvalidState(t *testing.T) {
 	resultCh := make(chan callbackResult, 1)
 	returnCh := make(chan struct{}, 1)
-	handler := callbackHandler("expected", "return-token", resultCh, returnCh, nil)
+	handler := callbackHandler(callbackConfig{
+		expectedState: "expected",
+		returnToken:   "return-token",
+	}, resultCh, returnCh)
 
 	req := httptest.NewRequest(http.MethodGet, "/auth/callback?state=wrong&code=code", nil)
 	res := httptest.NewRecorder()
@@ -33,9 +36,13 @@ func TestCallbackHandlerReturnToken(t *testing.T) {
 	resultCh := make(chan callbackResult, 1)
 	returnCh := make(chan struct{}, 1)
 	returned := false
-	handler := callbackHandler("expected", "return-token", resultCh, returnCh, func() {
-		returned = true
-	})
+	handler := callbackHandler(callbackConfig{
+		expectedState: "expected",
+		returnToken:   "return-token",
+		onReturn: func() {
+			returned = true
+		},
+	}, resultCh, returnCh)
 
 	req := httptest.NewRequest(http.MethodGet, "/auth/return?token=return-token", nil)
 	res := httptest.NewRecorder()

@@ -83,7 +83,11 @@ func Login(ctx context.Context, onReturn func()) (Credentials, error) {
 		Addr:              "127.0.0.1:1455",
 		ReadHeaderTimeout: 5 * time.Second,
 	}
-	server.Handler = callbackHandler(state, returnToken, resultCh, returnCh, onReturn)
+	server.Handler = callbackHandler(callbackConfig{
+		expectedState: state,
+		returnToken:   returnToken,
+		onReturn:      onReturn,
+	}, resultCh, returnCh)
 	listenerErr := make(chan error, 1)
 	listener, err := net.Listen("tcp", server.Addr)
 	if err != nil {
@@ -124,10 +128,16 @@ func Login(ctx context.Context, onReturn func()) (Credentials, error) {
 	}
 }
 
-func callbackHandler(expectedState, returnToken string, resultCh chan<- callbackResult, returnCh chan<- struct{}, onReturn func()) http.Handler {
+type callbackConfig struct {
+	expectedState string
+	returnToken   string
+	onReturn      func()
+}
+
+func callbackHandler(config callbackConfig, resultCh chan<- callbackResult, returnCh chan<- struct{}) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/auth/callback", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Query().Get("state") != expectedState {
+		if r.URL.Query().Get("state") != config.expectedState {
 			writePage(w, http.StatusBadRequest, "登录验证失败", "state 不匹配，请关闭此页面并重试。")
 			resultCh <- callbackResult{err: errors.New("OAuth state mismatch")}
 			return
@@ -138,17 +148,17 @@ func callbackHandler(expectedState, returnToken string, resultCh chan<- callback
 			resultCh <- callbackResult{err: errors.New("OAuth authorization code missing")}
 			return
 		}
-		writeSuccessPage(w, returnToken)
+		writeSuccessPage(w, config.returnToken)
 		resultCh <- callbackResult{code: code}
 	})
 	mux.HandleFunc("/auth/return", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Query().Get("token") != returnToken {
+		if r.URL.Query().Get("token") != config.returnToken {
 			writePage(w, http.StatusForbidden, "返回失败", "返回凭据无效，请重新登录。")
 			return
 		}
 		writePage(w, http.StatusOK, "返回成功", "已返回 Mux 桌面程序，可以关闭此页面。")
-		if onReturn != nil {
-			onReturn()
+		if config.onReturn != nil {
+			config.onReturn()
 		}
 		returnCh <- struct{}{}
 	})
