@@ -23,6 +23,7 @@ const (
 	authorizeURL          = "https://auth.openai.com/oauth/authorize"
 	oauthExchangeEndpoint = "https://auth.openai.com/oauth/token"
 	userinfoEndpoint      = "https://auth.openai.com/api/accounts/oauth/userinfo"
+	usageEndpoint         = "https://chatgpt.com/backend-api/wham/usage"
 	redirectURI           = "http://localhost:1455/auth/callback"
 	scope                 = "openid profile email offline_access"
 )
@@ -175,6 +176,59 @@ type UserProfile struct {
 	Name   string `json:"name"`
 	Email  string `json:"email"`
 	Avatar string `json:"picture"`
+}
+
+type UsageWindow struct {
+	UsedPercent        float64 `json:"used_percent"`
+	LimitWindowSeconds int64   `json:"limit_window_seconds"`
+	ResetAt            int64   `json:"reset_at"`
+}
+
+type UsageRateLimit struct {
+	PrimaryWindow   *UsageWindow `json:"primary_window"`
+	SecondaryWindow *UsageWindow `json:"secondary_window"`
+	LimitReached    bool         `json:"limit_reached"`
+}
+
+type UsageCredits struct {
+	HasCredits bool   `json:"has_credits"`
+	Unlimited  bool   `json:"unlimited"`
+	Balance    string `json:"balance"`
+}
+
+type Usage struct {
+	PlanType  string          `json:"plan_type"`
+	RateLimit *UsageRateLimit `json:"rate_limit"`
+	Credits   *UsageCredits   `json:"credits"`
+}
+
+func UsageInfo(ctx context.Context, accessToken, accountID string) (Usage, error) {
+	if accessToken == "" || accountID == "" {
+		return Usage{}, errors.New("access token and account ID are required")
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, usageEndpoint, nil)
+	if err != nil {
+		return Usage{}, fmt.Errorf("create usage request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("ChatGPT-Account-ID", accountID)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return Usage{}, fmt.Errorf("request usage: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return Usage{}, fmt.Errorf("read usage response: %w", err)
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return Usage{}, fmt.Errorf("usage request failed (%s)", resp.Status)
+	}
+	var usage Usage
+	if err := json.Unmarshal(body, &usage); err != nil {
+		return Usage{}, fmt.Errorf("decode usage response: %w", err)
+	}
+	return usage, nil
 }
 
 func UserInfo(ctx context.Context, accessToken string) (UserProfile, error) {

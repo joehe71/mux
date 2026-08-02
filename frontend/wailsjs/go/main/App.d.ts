@@ -6,12 +6,18 @@ export function AddAccount(arg1:string):Promise<main.AccountView>;
 
 export function CancelLogin(arg1:string):Promise<void>;
 
+export function GetSyncInterval():Promise<number>;
+
 export function ListAccounts():Promise<Array<main.AccountView>>;
 
 export function LoginAccount(arg1:string):Promise<void>;
 
+export function OpenConfigFileFolder():Promise<void>;
+
 export function RemoveAccount(arg1:string):Promise<void>;
 
 export function SetActiveAccount(arg1:string):Promise<void>;
+
+export function SetSyncInterval(arg1:number):Promise<void>;
 
 export function UpdateAccount(arg1:string):Promise<void>;

@@ -10,6 +10,10 @@ export function CancelLogin(arg1) {
   return window['go']['main']['App']['CancelLogin'](arg1);
 }
 
+export function GetSyncInterval() {
+  return window['go']['main']['App']['GetSyncInterval']();
+}
+
 export function ListAccounts() {
   return window['go']['main']['App']['ListAccounts']();
 }
@@ -18,12 +22,20 @@ export function LoginAccount(arg1) {
   return window['go']['main']['App']['LoginAccount'](arg1);
 }
 
+export function OpenConfigFileFolder() {
+  return window['go']['main']['App']['OpenConfigFileFolder']();
+}
+
 export function RemoveAccount(arg1) {
   return window['go']['main']['App']['RemoveAccount'](arg1);
 }
 
 export function SetActiveAccount(arg1) {
   return window['go']['main']['App']['SetActiveAccount'](arg1);
+}
+
+export function SetSyncInterval(arg1) {
+  return window['go']['main']['App']['SetSyncInterval'](arg1);
 }
 
 export function UpdateAccount(arg1) {

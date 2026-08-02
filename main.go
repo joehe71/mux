@@ -24,6 +24,9 @@ func main() {
 		DisableResize: false,
 		Mac: &mac.Options{
 			DisableZoom: false,
+			TitleBar: &mac.TitleBar{
+				HideToolbarSeparator: true,
+			},
 		},
 		AssetServer: &assetserver.Options{
 			Assets: assets,
