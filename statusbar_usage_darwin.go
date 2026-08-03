@@ -18,5 +18,5 @@ func (a *App) updateStatusBarUsage() {
 		setStatusBarTitle("Mux")
 		return
 	}
-	setStatusBarUsage(used / total)
+	setStatusBarUsage(used / total / 100)
 }
