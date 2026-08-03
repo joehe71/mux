@@ -1,15 +1,43 @@
 #import <Cocoa/Cocoa.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 static NSStatusItem *muxStatusItem;
+
+static NSColor *muxUsageColor(double remaining) {
+    if (remaining > 0.5) return [NSColor systemGreenColor];
+    if (remaining > 0.2) return [NSColor systemYellowColor];
+    return [NSColor systemRedColor];
+}
+
+static NSImage *muxUsageImage(double usedPercent) {
+    double remaining = 1.0 - usedPercent;
+    if (remaining < 0.0) remaining = 0.0;
+    if (remaining > 1.0) remaining = 1.0;
+
+    NSImage *image = [[[NSImage alloc] initWithSize:NSMakeSize(18.0, 18.0)] autorelease];
+    [image lockFocus];
+    NSColor *color = muxUsageColor(remaining);
+    [color setStroke];
+    NSBezierPath *ring = [NSBezierPath bezierPathWithOvalInRect:NSMakeRect(2.0, 2.0, 14.0, 14.0)];
+    ring.lineWidth = 2.0;
+    [ring stroke];
+    [color setFill];
+    double radius = 5.0 * sqrt(remaining);
+    NSBezierPath *fill = [NSBezierPath bezierPathWithOvalInRect:NSMakeRect(9.0 - radius, 9.0 - radius, radius * 2.0, radius * 2.0)];
+    [fill fill];
+    [image unlockFocus];
+    image.template = NO;
+    return image;
+}
 
 static void muxStartOnMain(void *context) {
     (void)context;
     if (muxStatusItem != nil) return;
     muxStatusItem = [[[NSStatusBar systemStatusBar] statusItemWithLength:NSVariableStatusItemLength] retain];
-    muxStatusItem.button.title = @"Mux";
-    muxStatusItem.button.toolTip = @"Mux 账号用量";
+    muxStatusItem.button.image = muxUsageImage(0.0);
+    muxStatusItem.button.toolTip = @"Mux 账号 7 天用量";
 }
 
 static void muxSetTitleOnMain(void *context) {
@@ -18,6 +46,14 @@ static void muxSetTitleOnMain(void *context) {
         muxStatusItem.button.title = title ? [NSString stringWithUTF8String:title] : @"Mux";
     }
     free(title);
+}
+
+static void muxSetUsageOnMain(void *context) {
+    double usedPercent = *(double *)context;
+    free(context);
+    if (muxStatusItem == nil) return;
+    muxStatusItem.button.image = muxUsageImage(usedPercent);
+    muxStatusItem.button.toolTip = [NSString stringWithFormat:@"Mux 账号 7 天用量：已用 %.0f%%，剩余 %.0f%%", usedPercent * 100.0, (1.0 - usedPercent) * 100.0];
 }
 
 static void muxStopOnMain(void *context) {
@@ -36,6 +72,12 @@ void muxStatusBarStart(void) {
 void muxStatusBarSetTitle(const char *title) {
     char *copy = title ? strdup(title) : NULL;
     dispatch_async_f(dispatch_get_main_queue(), copy, muxSetTitleOnMain);
+}
+
+void muxStatusBarSetUsage(double usedPercent) {
+    double *copy = malloc(sizeof(double));
+    *copy = usedPercent;
+    dispatch_async_f(dispatch_get_main_queue(), copy, muxSetUsageOnMain);
 }
 
 void muxStatusBarStop(void) {

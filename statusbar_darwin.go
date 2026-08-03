@@ -7,6 +7,7 @@ package main
 #cgo darwin LDFLAGS: -framework Cocoa
 void muxStatusBarStart(void);
 void muxStatusBarSetTitle(const char *title);
+void muxStatusBarSetUsage(double usedPercent);
 void muxStatusBarStop(void);
 */
 import "C"
@@ -21,6 +22,10 @@ func setStatusBarTitle(title string) {
 	cTitle := C.CString(title)
 	defer C.free(unsafe.Pointer(cTitle))
 	C.muxStatusBarSetTitle(cTitle)
+}
+
+func setStatusBarUsage(usedPercent float64) {
+	C.muxStatusBarSetUsage(C.double(usedPercent))
 }
 
 func stopStatusBar() {
