@@ -34,5 +34,5 @@ func (a *App) updateStatusBarUsage() {
 		setStatusBarTitle("Mux")
 		return
 	}
-	setStatusBarTitle(fmt.Sprintf("Mux %.0f%%", used/total))
+	setStatusBarTitle(fmt.Sprintf("Mux %.0f%%", 100-(used/total)))
 }
