@@ -27,7 +27,6 @@ static NSImage *muxUsageImage(double usedPercent) {
         NSBezierPath *progress = [NSBezierPath bezierPath];
         [progress appendBezierPathWithArcWithCenter:center radius:7.0 startAngle:-90.0 endAngle:-90.0 - (360.0 * remaining) clockwise:YES];
         progress.lineWidth = 2.0;
-        progress.lineCapStyle = NSRoundLineCapStyle;
         [color setStroke];
         [progress stroke];
     }
