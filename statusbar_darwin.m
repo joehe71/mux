@@ -1,7 +1,6 @@
 #import <Cocoa/Cocoa.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 
 static NSStatusItem *muxStatusItem;
 
@@ -19,14 +18,19 @@ static NSImage *muxUsageImage(double usedPercent) {
     NSImage *image = [[[NSImage alloc] initWithSize:NSMakeSize(18.0, 18.0)] autorelease];
     [image lockFocus];
     NSColor *color = muxUsageColor(remaining);
-    [color setStroke];
-    NSBezierPath *ring = [NSBezierPath bezierPathWithOvalInRect:NSMakeRect(2.0, 2.0, 14.0, 14.0)];
-    ring.lineWidth = 2.0;
-    [ring stroke];
-    [color setFill];
-    double radius = 5.0 * sqrt(remaining);
-    NSBezierPath *fill = [NSBezierPath bezierPathWithOvalInRect:NSMakeRect(9.0 - radius, 9.0 - radius, radius * 2.0, radius * 2.0)];
-    [fill fill];
+    NSPoint center = NSMakePoint(9.0, 9.0);
+    NSBezierPath *track = [NSBezierPath bezierPathWithOvalInRect:NSMakeRect(2.0, 2.0, 14.0, 14.0)];
+    track.lineWidth = 2.0;
+    [[NSColor colorWithWhite:0.75 alpha:0.35] setStroke];
+    [track stroke];
+    if (remaining > 0.0) {
+        NSBezierPath *progress = [NSBezierPath bezierPath];
+        [progress appendBezierPathWithArcWithCenter:center radius:7.0 startAngle:90.0 endAngle:90.0 - (360.0 * remaining) clockwise:YES];
+        progress.lineWidth = 2.0;
+        progress.lineCapStyle = NSRoundLineCapStyle;
+        [color setStroke];
+        [progress stroke];
+    }
     [image unlockFocus];
     image.template = NO;
     return image;
