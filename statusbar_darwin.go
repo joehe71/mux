@@ -8,6 +8,7 @@ package main
 void muxStatusBarStart(void);
 void muxStatusBarSetTitle(const char *title);
 void muxStatusBarSetUsage(double usedPercent);
+void muxStatusBarSetDetails(const char *details);
 void muxStatusBarStop(void);
 */
 import "C"
@@ -26,6 +27,12 @@ func setStatusBarTitle(title string) {
 
 func setStatusBarUsage(usedPercent float64) {
 	C.muxStatusBarSetUsage(C.double(usedPercent))
+}
+
+func setStatusBarDetails(details string) {
+	cDetails := C.CString(details)
+	defer C.free(unsafe.Pointer(cDetails))
+	C.muxStatusBarSetDetails(cDetails)
 }
 
 func stopStatusBar() {

@@ -3,6 +3,7 @@
 #include <string.h>
 
 static NSStatusItem *muxStatusItem;
+static NSMenu *muxStatusMenu;
 
 static NSColor *muxUsageColor(double remaining) {
     if (remaining > 0.5) return [NSColor systemGreenColor];
@@ -41,6 +42,8 @@ static void muxStartOnMain(void *context) {
     muxStatusItem = [[[NSStatusBar systemStatusBar] statusItemWithLength:NSVariableStatusItemLength] retain];
     muxStatusItem.button.title = @"Mux";
     muxStatusItem.button.toolTip = @"Mux 账号用量";
+    muxStatusMenu = [[[NSMenu alloc] initWithTitle:@"Mux 账号用量"] autorelease];
+    muxStatusItem.menu = muxStatusMenu;
 }
 
 static void muxSetTitleOnMain(void *context) {
@@ -59,12 +62,27 @@ static void muxSetUsageOnMain(void *context) {
     muxStatusItem.button.toolTip = [NSString stringWithFormat:@"Mux 账号 7 天用量：已用 %.0f%%，剩余 %.0f%%", usedPercent * 100.0, (1.0 - usedPercent) * 100.0];
 }
 
+static void muxSetDetailsOnMain(void *context) {
+    char *details = context;
+    if (muxStatusMenu != nil) {
+        [muxStatusMenu removeAllItems];
+        NSString *text = details ? [NSString stringWithUTF8String:details] : @"暂无账号用量数据";
+        for (NSString *line in [text componentsSeparatedByString:@"\n"]) {
+            NSMenuItem *item = [[[NSMenuItem alloc] initWithTitle:line action:nil keyEquivalent:@""] autorelease];
+            item.enabled = NO;
+            [muxStatusMenu addItem:item];
+        }
+    }
+    free(details);
+}
+
 static void muxStopOnMain(void *context) {
     (void)context;
     if (muxStatusItem == nil) return;
     NSStatusItem *item = muxStatusItem;
     muxStatusItem = nil;
     [[NSStatusBar systemStatusBar] removeStatusItem:item];
+    muxStatusMenu = nil;
     [item release];
 }
 
@@ -81,6 +99,11 @@ void muxStatusBarSetUsage(double usedPercent) {
     double *copy = malloc(sizeof(double));
     *copy = usedPercent;
     dispatch_async_f(dispatch_get_main_queue(), copy, muxSetUsageOnMain);
+}
+
+void muxStatusBarSetDetails(const char *details) {
+    char *copy = details ? strdup(details) : NULL;
+    dispatch_async_f(dispatch_get_main_queue(), copy, muxSetDetailsOnMain);
 }
 
 void muxStatusBarStop(void) {
