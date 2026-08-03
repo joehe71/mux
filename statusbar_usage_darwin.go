@@ -2,6 +2,8 @@
 
 package main
 
+import "fmt"
+
 func (a *App) updateStatusBarUsage() {
 	if a.store == nil {
 		return
@@ -18,5 +20,5 @@ func (a *App) updateStatusBarUsage() {
 		setStatusBarTitle("Mux")
 		return
 	}
-	setStatusBarUsage(used / total / 100)
+	setStatusBarTitle(fmt.Sprintf("Mux %.0f%%", used/total))
 }

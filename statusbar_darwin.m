@@ -39,9 +39,8 @@ static void muxStartOnMain(void *context) {
     (void)context;
     if (muxStatusItem != nil) return;
     muxStatusItem = [[[NSStatusBar systemStatusBar] statusItemWithLength:NSVariableStatusItemLength] retain];
-    muxStatusItem.button.title = @"";
-    muxStatusItem.button.image = muxUsageImage(0.0);
-    muxStatusItem.button.toolTip = @"Mux 账号 7 天用量";
+    muxStatusItem.button.title = @"Mux";
+    muxStatusItem.button.toolTip = @"Mux 账号用量";
 }
 
 static void muxSetTitleOnMain(void *context) {
