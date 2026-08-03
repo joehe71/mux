@@ -21,11 +21,11 @@ static NSImage *muxUsageImage(double usedPercent) {
     NSPoint center = NSMakePoint(9.0, 9.0);
     NSBezierPath *track = [NSBezierPath bezierPathWithOvalInRect:NSMakeRect(2.0, 2.0, 14.0, 14.0)];
     track.lineWidth = 2.0;
-    [[NSColor colorWithWhite:0.75 alpha:0.35] setStroke];
+    [[NSColor blackColor] setStroke];
     [track stroke];
     if (remaining > 0.0) {
         NSBezierPath *progress = [NSBezierPath bezierPath];
-        [progress appendBezierPathWithArcWithCenter:center radius:7.0 startAngle:90.0 endAngle:90.0 - (360.0 * remaining) clockwise:YES];
+        [progress appendBezierPathWithArcWithCenter:center radius:7.0 startAngle:-90.0 endAngle:-90.0 + (360.0 * remaining) clockwise:NO];
         progress.lineWidth = 2.0;
         progress.lineCapStyle = NSRoundLineCapStyle;
         [color setStroke];
@@ -40,6 +40,7 @@ static void muxStartOnMain(void *context) {
     (void)context;
     if (muxStatusItem != nil) return;
     muxStatusItem = [[[NSStatusBar systemStatusBar] statusItemWithLength:NSVariableStatusItemLength] retain];
+    muxStatusItem.button.title = @"";
     muxStatusItem.button.image = muxUsageImage(0.0);
     muxStatusItem.button.toolTip = @"Mux 账号 7 天用量";
 }
